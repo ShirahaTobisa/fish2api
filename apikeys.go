@@ -1,62 +1,46 @@
 // 使用者 API key:发给调用方(脚本/new-api/酒馆)的钥匙,与管理员的 ACCESS_KEY 分离。
 //
 //   - ACCESS_KEY(环境变量):管理员,全部权限,面板登录用它;
-//   - API_KEYS(环境变量,逗号分隔多把):使用者,只能调合成与只读查询(/api/tts、
-//     /api/web/tts、/v1/audio/speech、/v1/models、/api/models、/api/voices*),
-//     碰账号管理(/api/accounts*)会被拒;没配 ACCESS_KEY 时视为开放实例,一切照旧不拦。
+//   - 使用者 key(面板「API Keys」页发放,存在 data/config.json):有名字、能停用,
+//     只能调合成与查询(见 userAllowed),碰账号、密钥、设置、记录这些管理接口会被拒;
+//     没配 ACCESS_KEY 时视为开放实例,一切照旧不拦;
+//   - 老版本存在 data/api_keys.txt(一行一把)的 key 第一次启动时自动导入,原文件改名留底。
 //
 // 兼容三种传法(OpenAI 客户端常见姿势):Authorization: Bearer <key>、X-Api-Key: <key>、?key=<key>。
 package main
 
 import (
+	"cmp"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"net/http"
 	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
-// apiKeys 使用者密钥集合(启动时从 API_KEYS 读入,面板增删会同步写回环境存储文件)。
-var apiKeys = newAPIKeySet()
-
-type apiKeySet struct {
-	keys map[string]bool
+// apiKey 一把使用者 key。调用次数、最后使用时间从请求记录里统计,这里不存。
+type apiKey struct {
+	Name    string `json:"name"`
+	Key     string `json:"key"`
+	Enabled bool   `json:"enabled"`
+	Created int64  `json:"created"` // unix 毫秒
 }
 
-func newAPIKeySet() *apiKeySet {
-	s := &apiKeySet{keys: map[string]bool{}}
-	for _, k := range strings.Split(os.Getenv("API_KEYS"), ",") {
-		if k = strings.TrimSpace(k); k != "" {
-			s.keys[k] = true
-		}
-	}
-	return s
-}
+const adminKeyName = "管理员" // 请求记录里 ACCESS_KEY 显示的名字
 
-func (s *apiKeySet) list() []string {
-	out := make([]string, 0, len(s.keys))
-	for k := range s.keys {
-		out = append(out, k)
-	}
-	return out
-}
+type callerCtx struct{} // 请求上下文里放调用方的 key 名(guard 放,请求记录取)
 
-func (s *apiKeySet) add(key string) bool {
-	key = strings.TrimSpace(key)
-	if key == "" || s.keys[key] {
-		return false
-	}
-	s.keys[key] = true
-	return true
+func keyRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/keys", handleKeyList)
+	mux.HandleFunc("POST /api/keys", handleKeyAdd)
+	mux.HandleFunc("PATCH /api/keys/{name}", handleKeyPatch)
+	mux.HandleFunc("DELETE /api/keys/{name}", handleKeyDelete)
 }
-
-func (s *apiKeySet) remove(key string) bool {
-	if !s.keys[key] {
-		return false
-	}
-	delete(s.keys, key)
-	return true
-}
-
-func (s *apiKeySet) has(key string) bool { return s.keys[key] }
 
 // requestKey 从请求里取调用方给的 key:Authorization: Bearer > X-Api-Key > ?key=。
 func requestKey(r *http.Request) string {
@@ -69,20 +53,163 @@ func requestKey(r *http.Request) string {
 	return strings.TrimSpace(r.URL.Query().Get("key"))
 }
 
-// isUserKey 判断调用方给的 key 是不是一把有效的使用者 key。
-func isUserKey(key string) bool { return key != "" && apiKeys.has(key) }
-
-// isAdminKey 管理员密钥(ACCESS_KEY)。
-func isAdminKey(key string) bool { return accessKey != "" && key == accessKey }
-
-// authLevel 鉴权结果:0 无效 1 使用者 2 管理员。
-func authLevel(r *http.Request) int {
-	k := requestKey(r)
-	switch {
-	case isAdminKey(k):
-		return 2
-	case isUserKey(k):
-		return 1
+// keyOf 认出 key:管理员 (adminKeyName, 2);启用的使用者 key (名字, 1);停用的 (名字, -1);认不出 ("", 0)。
+func keyOf(key string) (string, int) {
+	if key == "" {
+		return "", 0
 	}
-	return 0
+	if accessKey != "" && subtle.ConstantTimeCompare([]byte(key), []byte(accessKey)) == 1 {
+		return adminKeyName, 2
+	}
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	for _, k := range cfg.Keys {
+		if subtle.ConstantTimeCompare([]byte(key), []byte(k.Key)) == 1 {
+			if !k.Enabled {
+				return k.Name, -1
+			}
+			return k.Name, 1
+		}
+	}
+	return "", 0
+}
+
+// userAllowed 使用者 key 能调的接口:合成(语音/图像/视频)、查声音和模型、查余额和任务;其余都是管理接口。
+func userAllowed(path string) bool {
+	if strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/api/voices") || strings.HasPrefix(path, "/api/web/") {
+		return true
+	}
+	return path == "/api/tts" || path == "/api/models"
+}
+
+func keyCount() int {
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	return len(cfg.Keys)
+}
+
+// importOldKeys 把老版本 api_keys.txt 里的 key 并进来(起名「旧 key N」),原文件改名为 .imported 留底(需持 cfgMu)。
+func importOldKeys(dir string) {
+	old := cmp.Or(os.Getenv("API_KEYS_FILE"), filepath.Join(dir, "api_keys.txt"))
+	b, err := os.ReadFile(old)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		k := strings.TrimSpace(line)
+		if k != "" && !slices.ContainsFunc(cfg.Keys, func(x apiKey) bool { return x.Key == k }) {
+			cfg.Keys = append(cfg.Keys, apiKey{Name: "旧 key " + strconv.Itoa(len(cfg.Keys)+1), Key: k, Enabled: true, Created: time.Now().UnixMilli()})
+		}
+	}
+	if err := saveCfg(); err != nil {
+		logf("导入 %s 失败: %v", old, err)
+		return
+	}
+	_ = os.Rename(old, old+".imported")
+	logf("已把 %s 里的使用者 key 导入 config.json,原文件改名为 .imported", old)
+}
+
+func handleKeyList(w http.ResponseWriter, r *http.Request) {
+	cfgMu.Lock()
+	keys := slices.Clone(cfg.Keys)
+	cfgMu.Unlock()
+	writeJSON(w, 200, map[string]any{"keys": keys})
+}
+
+// handleKeyAdd 发放新 key:{"name":"给谁用"},key 自动生成(sk-fish- 开头)。
+func handleKeyAdd(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Name string `json:"name"`
+	}
+	if err := readJSON(r, &in); err != nil {
+		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
+		return
+	}
+	k := apiKey{Name: strings.TrimSpace(in.Name), Key: "sk-fish-" + randHex(20), Enabled: true, Created: time.Now().UnixMilli()}
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	if msg := badKeyName(k.Name, ""); msg != "" {
+		fail(w, 400, msg)
+		return
+	}
+	cfg.Keys = append(cfg.Keys, k)
+	if saveCfgOr500(w) {
+		logf("发放使用者 API key「%s」", k.Name)
+		writeJSON(w, 200, k)
+	}
+}
+
+// handleKeyPatch 改名 {"name"} / 启用停用 {"enabled"}。
+func handleKeyPatch(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Name    *string `json:"name"`
+		Enabled *bool   `json:"enabled"`
+	}
+	if err := readJSON(r, &in); err != nil {
+		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
+		return
+	}
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	i := keyIndex(r.PathValue("name"))
+	if i < 0 {
+		fail(w, 404, "没有这把 key: "+r.PathValue("name"))
+		return
+	}
+	k := &cfg.Keys[i]
+	if in.Name != nil {
+		name := strings.TrimSpace(*in.Name)
+		if msg := badKeyName(name, k.Name); msg != "" {
+			fail(w, 400, msg)
+			return
+		}
+		k.Name = name
+	}
+	if in.Enabled != nil {
+		k.Enabled = *in.Enabled
+	}
+	if saveCfgOr500(w) {
+		writeJSON(w, 200, *k)
+	}
+}
+
+func handleKeyDelete(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	cfgMu.Lock()
+	defer cfgMu.Unlock()
+	i := keyIndex(name)
+	if i < 0 {
+		fail(w, 404, "没有这把 key: "+name)
+		return
+	}
+	cfg.Keys = slices.Delete(cfg.Keys, i, i+1)
+	if saveCfgOr500(w) {
+		logf("吊销使用者 API key「%s」", name)
+		writeJSON(w, 200, map[string]any{"deleted": name})
+	}
+}
+
+// keyIndex 按名字找 key(需持 cfgMu),找不到返回 -1。
+func keyIndex(name string) int {
+	return slices.IndexFunc(cfg.Keys, func(k apiKey) bool { return k.Name == name })
+}
+
+// badKeyName 检查名字(需持 cfgMu):不能空、不能重名、不能和管理员撞名;old 是改名前的名字。
+func badKeyName(name, old string) string {
+	switch {
+	case name == "":
+		return "名字不能为空:写上给谁用的,请求记录里按它统计"
+	case name == adminKeyName:
+		return "「" + adminKeyName + "」留给 ACCESS_KEY,换个名字"
+	case name != old && keyIndex(name) >= 0:
+		return "已经有叫「" + name + "」的 key 了"
+	}
+	return ""
+}
+
+// randHex 生成 n 字节的随机 hex。
+func randHex(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b) // Go 1.24 起 crypto/rand.Read 不会失败
+	return hex.EncodeToString(b)
 }

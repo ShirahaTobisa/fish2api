@@ -4,3 +4,6 @@ login-debug.png
 data/
 .env
 browser-profile/
+config.json*
+requests.jsonl*
+api_keys.txt*

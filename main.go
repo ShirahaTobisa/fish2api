@@ -13,8 +13,6 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	crand "crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,9 +36,12 @@ var (
 	accessKey = os.Getenv("ACCESS_KEY")                       // 设了之后 /api/* 都要带 Authorization: Bearer <key>
 	pushURL   = strings.TrimRight(os.Getenv("PUSH_URL"), "/") // 本地登录拿到的 token 推送到这台服务器
 	pushKey   = os.Getenv("PUSH_KEY")                         // 那台服务器的 ACCESS_KEY
-
-	accountCooldown = time.Duration(envInt("ACCOUNT_COOLDOWN_SECONDS", 30)) * time.Second // 账号上游 429/5xx 后冷却多久
 )
+
+// accountCooldown 账号上游 429/5xx 后冷却多久。面板「设置」里能改、保存即生效(见 admin.go),所以现读。
+func accountCooldown() time.Duration {
+	return time.Duration(envInt("ACCOUNT_COOLDOWN_SECONDS", 30)) * time.Second
+}
 
 func logf(format string, args ...any) { log.Printf(format, args...) }
 
@@ -58,15 +59,22 @@ func fail(w http.ResponseWriter, status int, msg string) {
 }
 
 // guard 设了 ACCESS_KEY 时 /api/* 和 /v1/* 必须带对密钥;/ 和 /health 不拦,面板靠 /health 得知要不要密钥。
-// 两级钥匙:ACCESS_KEY=管理员(全部接口);API_KEYS 里的=使用者(仅合成与只读查询)。
+// 两级钥匙:ACCESS_KEY=管理员(全部接口);面板「API Keys」里发的=使用者(只能调合成与查询,见 apikeys.go 的 userAllowed)。
 // 支持三种传法:Authorization: Bearer <key> / X-Api-Key: <key> / ?key=<key>(OpenAI 客户端通吃)。
+// 认出的密钥名放进请求上下文,请求记录里按它统计(没设 ACCESS_KEY 时不拦,但带了 key 照样认名字)。
 func guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if accessKey == "" || !(strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/")) {
+		if !(strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/")) {
 			next.ServeHTTP(w, r)
 			return
 		}
-			// 媒体文件下载走 <img>/<video> 标签,带不了 Authorization 头,放行带有效签名的请求
+		name, level := keyOf(requestKey(r))
+		r = r.WithContext(context.WithValue(r.Context(), callerCtx{}, name))
+		if accessKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// 媒体文件下载走 <img>/<video> 标签,带不了 Authorization 头,放行带有效签名的请求
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/web/media/") && strings.HasSuffix(r.URL.Path, "/file") {
 			// 校验对象 = 去掉 &sig=... 之后的 RequestURI(与签名端 raw 字节一致)
 			sig := r.URL.Query().Get("sig")
@@ -76,15 +84,17 @@ func guard(next http.Handler) http.Handler {
 				return
 			}
 		}
-		switch authLevel(r) {
+		switch level {
 		case 2: // 管理员
 			next.ServeHTTP(w, r)
-		case 1: // 使用者:只能合成与只读查询,账号管理一律拒绝
-			if strings.HasPrefix(r.URL.Path, "/api/accounts") {
-				fail(w, 403, "使用者 API key 无权访问账号管理接口,该操作需要管理员密钥(ACCESS_KEY)")
+		case 1: // 使用者:只能合成与查询;账号、密钥、设置、记录这些管理接口一律拒绝
+			if !userAllowed(r.URL.Path) {
+				fail(w, 403, "使用者 API key 只能调合成与查询接口,管理操作需要管理员密钥(ACCESS_KEY)")
 				return
 			}
 			next.ServeHTTP(w, r)
+		case -1:
+			fail(w, 401, "这把 API key 已在面板里停用")
 		default:
 			w.Header().Set("WWW-Authenticate", `Bearer realm="fish2api"`)
 			fail(w, 401, "需要访问密钥:Authorization: Bearer <key>(管理员用 ACCESS_KEY,使用者用 API key)")
@@ -197,7 +207,7 @@ func streamBackCaching(w http.ResponseWriter, resp *http.Response, mediaType, ke
 	w.Header().Set("Content-Type", mediaType)
 	w.Header().Set("X-Cache", "MISS")
 	w.WriteHeader(resp.StatusCode)
-	cw := &capWriter{max: ttsCache.maxItem}
+	cw := &capWriter{max: ttsCache.itemLimit()}
 	_, err := io.Copy(io.MultiWriter(flushWriter{w, http.NewResponseController(w)}, cw), resp.Body)
 	if err == nil && !cw.overflow && cw.buf.Len() > 0 {
 		ttsCache.put(key, cw.buf.Bytes(), mediaType)
@@ -266,6 +276,7 @@ func resolveWebCred(r *http.Request) (*WebCred, error) {
 	}
 	cred, err := store.Pick(cmp.Or(r.Header.Get("X-Account"), r.URL.Query().Get("account")))
 	if err == nil {
+		recOf(r).Account = cred.Account.Name // 请求记录里记下实际用的账号(见 admin.go)
 		return cred, nil
 	}
 	if t := os.Getenv("FISH_WEB_TOKEN"); t != "" {
@@ -335,7 +346,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		"accounts_valid":       usable,
 		"browser_login":        hasBrowser && !loginDisabled, // 容器里装了 chromium 也没有显示器,登录仍不可用
 		"access_key_required":  accessKey != "",
-		"user_api_keys":        len(apiKeys.list()), // 使用者 key 数量(不回显内容)
+		"user_api_keys":        keyCount(), // 使用者 key 数量(不回显内容)
 		"push_url":             pushURL,
 	})
 }
@@ -532,6 +543,7 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 	var key string
 	if canCache {
 		key = cacheKey(in)
+		recOf(r).cacheKey = key // 缓存里还在时,请求记录能回放这条
 		if e, ok := ttsCache.get(key); ok {
 			w.Header().Set("X-Cache", "HIT")
 			w.Header().Set("Content-Type", e.mime)
@@ -571,6 +583,7 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 		logf("账号 %s 的 token 已失效,尝试自动重登", name)
 		if cred.Token, err = store.Login(name, false); err != nil {
 			store.Invalidate(name, "token 已失效(上游 401),自动重登也失败: "+err.Error())
+			store.Save() // 不存的话,重启后死 token 又从文件里读回来、又被当成可用
 			fail(w, 401, "token 失效且自动重登失败: "+err.Error())
 			return
 		}
@@ -581,8 +594,8 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 		return
 	}
 	if cred.Account != nil && (resp.StatusCode == 429 || resp.StatusCode >= 500) {
-		store.Cooldown(cred.Account.Name, accountCooldown)
-		logf("账号 %s 上游返回 %d,冷却 %s 后再轮到它", cred.Account.Name, resp.StatusCode, accountCooldown)
+		store.Cooldown(cred.Account.Name, accountCooldown())
+		logf("账号 %s 上游返回 %d,冷却 %s 后再轮到它", cred.Account.Name, resp.StatusCode, accountCooldown())
 	}
 	if id := resp.Header.Get("task-id"); id != "" {
 		w.Header().Set("X-Task-Id", id)
@@ -856,100 +869,24 @@ func handleAccountDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"deleted": name})
 }
 
-// ---------------------------------------------------------------- 使用者 API key 管理(仅管理员)
-
-// handleAPIKeys GET 列出 / POST 新增 / DELETE 吊销使用者 key。
-// key 持久化在 API_KEYS_FILE(默认 data/api_keys.txt,每行一把,启动时与 API_KEYS 环境变量合并)。
-func handleAPIKeys(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		writeJSON(w, 200, map[string]any{"keys": apiKeys.list()})
-	case http.MethodPost:
-		var in struct {
-			Key  string `json:"key"`  // 留空则自动生成
-			Note string `json:"note"` // 给谁用的备注(仅日志)
-		}
-		if err := readJSON(r, &in); err != nil {
-			fail(w, 400, "请求体不是合法 JSON: "+err.Error())
-			return
-		}
-		key := strings.TrimSpace(in.Key)
-		if key == "" {
-			key = "sk-fish-" + randHex(20)
-		}
-		if !apiKeys.add(key) {
-			fail(w, 400, "key 已存在或为空")
-			return
-		}
-		saveAPIKeys()
-		logf("新增使用者 API key(%s)", cmp.Or(in.Note, "未备注"))
-		writeJSON(w, 200, map[string]any{"key": key, "note": in.Note, "total": len(apiKeys.list())})
-	case http.MethodDelete:
-		var in struct {
-			Key string `json:"key"`
-		}
-		if err := readJSON(r, &in); err != nil {
-			fail(w, 400, "请求体不是合法 JSON: "+err.Error())
-			return
-		}
-		if !apiKeys.remove(strings.TrimSpace(in.Key)) {
-			fail(w, 404, "key 不存在")
-			return
-		}
-		saveAPIKeys()
-		writeJSON(w, 200, map[string]any{"revoked": in.Key, "total": len(apiKeys.list())})
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func apiKeysFile() string { return cmp.Or(os.Getenv("API_KEYS_FILE"), filepath.Join(filepath.Dir(store.path), "api_keys.txt")) }
-
-// saveAPIKeys 把当前 key 集合写回文件(每行一把)。
-func saveAPIKeys() {
-	path := apiKeysFile()
-	if dir := filepath.Dir(path); dir != "." {
-		_ = os.MkdirAll(dir, 0o755)
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(strings.Join(apiKeys.list(), "\n")), 0o600); err == nil {
-		_ = os.Rename(tmp, path)
-	}
-}
-
-// loadAPIKeys 启动时把文件里的 key 并进集合(API_KEYS 环境变量里的仍在)。
-func loadAPIKeys() {
-	b, err := os.ReadFile(apiKeysFile())
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if k := strings.TrimSpace(line); k != "" {
-			apiKeys.add(k)
-		}
-	}
-}
-
-// randHex 生成 n 字节的随机 hex。
-func randHex(n int) string {
-	b := make([]byte, n)
-	if _, err := crand.Read(b); err != nil {
-		return fmt.Sprintf("%x", time.Now().UnixNano())
-	}
-	return hex.EncodeToString(b)
-}
-
 // ---------------------------------------------------------------- 启动
 
+func listenAddr() string {
+	return cmp.Or(os.Getenv("HOST"), "127.0.0.1") + ":" + cmp.Or(os.Getenv("PORT"), "8765")
+}
+
 func main() {
+	log.SetOutput(io.MultiWriter(os.Stderr, serverLog)) // 日志抄一份给面板「运行日志」页
+	loadAdmin()                                         // 面板里改过的设置、使用者 key、请求记录(见 admin.go)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", handleUI)
 	mux.HandleFunc("GET /health", handleHealth)
 	mux.HandleFunc("GET /api/models", handleModels)
 	mux.HandleFunc("GET /api/voices", handleVoices)
 	mux.HandleFunc("GET /api/voices/{id}", handleVoiceDetail)
-	mux.HandleFunc("POST /api/tts", handleAPIKeyTTS)
-	mux.HandleFunc("POST /api/web/tts", handleWebTTS)
+	mux.HandleFunc("POST /api/tts", logged("api", handleAPIKeyTTS))
+	mux.HandleFunc("POST /api/web/tts", logged("web", handleWebTTS))
 	mux.HandleFunc("GET /api/web/credit", handleWebCredit)
 	mux.HandleFunc("GET /api/web/task/{task_id}", handleWebTask)
 	mux.HandleFunc("GET /api/accounts", handleAccountList)
@@ -958,19 +895,17 @@ func main() {
 	mux.HandleFunc("PATCH /api/accounts/{name}", handleAccountPatch)
 	mux.HandleFunc("PUT /api/accounts/{name}/token", handleAccountToken)
 	mux.HandleFunc("DELETE /api/accounts/{name}", handleAccountDelete)
-	mux.HandleFunc("GET /api/keys", handleAPIKeys)
-	mux.HandleFunc("POST /api/keys", handleAPIKeys)
-	mux.HandleFunc("DELETE /api/keys", handleAPIKeys)
 	mux.HandleFunc("GET /api/web/media/models", handleWebMediaModels)
 	mux.HandleFunc("GET /api/web/media/entitlements", handleWebMediaEntitlements)
-	mux.HandleFunc("POST /api/web/media", handleWebMediaGenerate)
+	mux.HandleFunc("POST /api/web/media", logged("media", handleWebMediaGenerate))
 	mux.HandleFunc("GET /api/web/media/{group_id}", handleWebMediaStatus)
 	mux.HandleFunc("GET /api/web/media/file", handleWebMediaFile)
 	mux.HandleFunc("GET /v1/models", handleOpenAIModels)
-	mux.HandleFunc("POST /v1/audio/speech", handleOpenAISpeech)
+	mux.HandleFunc("POST /v1/audio/speech", logged("openai", handleOpenAISpeech))
+	keyRoutes(mux)
+	adminRoutes(mux)
 
 	go store.RefreshLoop() // 始终后台验证 token 有效性、踢掉死 token;有浏览器的机器还会自动重登(见 RefreshLoop)
-	loadAPIKeys()          // 使用者 API key:环境变量 API_KEYS + 文件合并
 	Warmup()               // 预热收割浏览器并取一个 token,让首个合成请求免付冷启动(见 recaptcha.go)
 	if !hasBrowser {
 		logf("本机没有 Chrome/Edge:登录功能关闭,只接收推送/粘贴的 token(服务器模式);token 仍会定期向上游验证")
@@ -983,7 +918,7 @@ func main() {
 		}()
 	}
 
-	addr := cmp.Or(os.Getenv("HOST"), "127.0.0.1") + ":" + cmp.Or(os.Getenv("PORT"), "8765")
+	addr := listenAddr()
 	path, _ := filepath.Abs(store.path)
 	logf("Fish Audio TTS API(Go)监听 http://%s,账号库 %s", addr, path)
 	log.Fatal(http.ListenAndServe(addr, guard(mux)))

@@ -30,8 +30,10 @@ const (
 	recaptchaAction  = "playground"                               // 网页合成用的 action(前端 beta 代码里 Va("playground"))
 )
 
-// 缓存时长:官方有效期约 120s,默认保守用 100s;可用 RECAPTCHA_TTL_SECONDS 调小做测试。
-var recaptchaTTL = time.Duration(envInt("RECAPTCHA_TTL_SECONDS", 100)) * time.Second
+// 缓存时长:官方有效期约 120s,默认保守用 100s;可用 RECAPTCHA_TTL_SECONDS 调小做测试(面板里能改,所以现读)。
+func recaptchaTTL() time.Duration {
+	return time.Duration(envInt("RECAPTCHA_TTL_SECONDS", 100)) * time.Second
+}
 
 var (
 	recaptchaMu   sync.Mutex
@@ -46,7 +48,7 @@ var (
 func recaptchaToken(force bool) (string, error) {
 	recaptchaMu.Lock()
 	defer recaptchaMu.Unlock()
-	if !force && recaptchaTok != "" && time.Since(recaptchaAt) < recaptchaTTL {
+	if !force && recaptchaTok != "" && time.Since(recaptchaAt) < recaptchaTTL() {
 		return recaptchaTok, nil
 	}
 	token, err := harvestRecaptcha()
@@ -267,7 +269,7 @@ func resetRecaptcha() {
 // Warmup 启动预热:拉起收割浏览器并先取一个 token,让首个合成请求免付冷启动
 // (浏览器启动 + 页面加载 + reCAPTCHA payload 加载,冷启动要 50 秒以上)。
 // RECAPTCHA_KEEPWARM=1 时还会按缓存周期持续换新 token,首请求永远零等待;
-// 代价是每 TTL-10s 打一次 reCAPTCHA 接口,持续跑可能引来风控关注,默认关闭。
+// 代价是每 TTL-10s 打一次 reCAPTCHA 接口,持续跑可能引来风控关注,默认关闭(面板里能随时开关,每轮现读)。
 func Warmup() {
 	if !hasBrowser && !downloadBrowser() {
 		return
@@ -280,14 +282,15 @@ func Warmup() {
 		}
 		logf("[recaptcha] 启动预热完成,收割浏览器已常驻")
 	}()
-	if os.Getenv("RECAPTCHA_KEEPWARM") == "1" {
-		go func() {
-			for {
-				time.Sleep(recaptchaTTL - 10*time.Second)
-				if _, err := recaptchaToken(true); err != nil {
-					logf("[recaptcha] keepwarm 换新失败: %v", err)
-				}
+	go func() {
+		for {
+			time.Sleep(max(recaptchaTTL()-10*time.Second, 10*time.Second))
+			if os.Getenv("RECAPTCHA_KEEPWARM") != "1" {
+				continue
 			}
-		}()
-	}
+			if _, err := recaptchaToken(true); err != nil {
+				logf("[recaptcha] keepwarm 换新失败: %v", err)
+			}
+		}
+	}()
 }

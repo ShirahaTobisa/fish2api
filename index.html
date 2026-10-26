@@ -9,12 +9,14 @@
 :root{
   --bg:#f5f6f8;--card:#fff;--line:#e5e7eb;--txt:#1f2329;--sub:#6b7280;--brand:#2b6de9;--brand-bg:#e8f0fe;
   --ok:#16a34a;--ok-bg:#dcfce7;--warn:#d97706;--warn-bg:#fef3c7;--err:#dc2626;--err-bg:#fee2e2;--dim-bg:#f1f3f5;
-  --hover:#f7f8fa;--input:#fff;--side:#fff;--shadow:0 1px 2px rgba(16,24,40,.04)
+  --hover:#f7f8fa;--input:#fff;--side:#fff;--shadow:0 1px 2px rgba(16,24,40,.04);
+  --c-ok:#2b6de9;--c-bad:#dc2626 /* 趋势图:成功 / 失败(色弱可分,已校验) */
 }
 [data-theme=dark]{
   --bg:#121417;--card:#1b1e24;--line:#2b303a;--txt:#e6e8eb;--sub:#98a2b3;--brand:#6ea0ff;--brand-bg:#1e2a44;
   --ok:#4ade80;--ok-bg:#14301f;--warn:#fbbf24;--warn-bg:#3a2b0a;--err:#f87171;--err-bg:#3b1515;--dim-bg:#262b33;
-  --hover:#20242b;--input:#15181d;--side:#16191e;--shadow:none
+  --hover:#20242b;--input:#15181d;--side:#16191e;--shadow:none;
+  --c-ok:#4f86f7;--c-bad:#ef4444
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;display:flex;min-height:100vh}
@@ -101,7 +103,70 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
 .hist .ht{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist .hm{color:var(--sub);font-size:12px}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:50;max-width:90vw}
-@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+/* 开关 */
+.sw{position:relative;display:inline-block;width:36px;height:20px;flex:none;vertical-align:middle}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sw span{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.2s;cursor:pointer}
+.sw span::before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sw input:checked+span{background:var(--brand)}
+.sw input:checked+span::before{transform:translateX(16px)}
+.sw input:focus-visible+span{box-shadow:0 0 0 3px var(--brand-bg)}
+.swl{display:inline-flex;gap:8px;align-items:center;margin:0;font-size:13px;color:var(--txt);cursor:pointer;white-space:nowrap}
+/* 分段按钮(时间范围 / 页签) */
+.seg{display:inline-flex;background:var(--dim-bg);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:none;background:none;padding:4px 12px;border-radius:7px;color:var(--sub);font-size:13px}
+.seg button:hover{color:var(--txt)}
+.seg button.on{background:var(--card);color:var(--txt);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+/* 工具条 / 表格 */
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bar .grow{flex:1;min-width:160px;width:auto}
+.bar select{width:auto;max-width:180px}
+.tw{overflow-x:auto}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ell{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.fill{width:100%;max-width:0;min-width:140px}td.fill .ell{max-width:none} /* 这一列吃掉剩余宽度,放不下就省略 */
+tr.click{cursor:pointer}
+.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:12.5px;color:var(--sub)}
+.empty{text-align:center;color:var(--sub);padding:26px 0!important}
+.grid-dash{display:grid;grid-template-columns:3fr 2fr;gap:16px}
+.stats.six{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1280px){.stats.six{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.mini{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.mini:last-child{border-bottom:none}
+.mini b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 趋势图:按小时堆叠的成功/失败柱 */
+.chart{display:grid;grid-template-columns:30px 1fr;grid-template-rows:180px 20px;column-gap:8px}
+.chart .cy{position:relative}
+.chart .cy span{position:absolute;right:0;transform:translateY(50%);font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.chart .cp{position:relative;display:flex;align-items:stretch;gap:2px;border-bottom:1px solid var(--line)}
+.chart .cp i{position:absolute;left:0;right:0;height:1px;background:var(--line)}
+.chart .cb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;z-index:1;border-radius:4px;outline:none}
+.chart .cb:hover,.chart .cb:focus-visible{background:var(--hover)}
+.chart .cb span{display:block;width:min(100%,24px)}
+.chart .cb span:first-child{border-radius:4px 4px 0 0}
+.chart .cb span+span{margin-top:2px}
+.chart .cb .ok{background:var(--c-ok)}.chart .cb .bad{background:var(--c-bad)}
+.chart .cx{grid-column:2;display:flex;gap:2px;font-size:11px;color:var(--sub)}
+.chart .cx span{flex:1;text-align:center;white-space:nowrap}
+.legend{display:inline-flex;gap:14px;font-size:12px;color:var(--sub);font-weight:400}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.7;box-shadow:0 4px 14px rgba(0,0,0,.14);display:none}
+#tip i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+/* 设置 */
+.set{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.set:last-child{border-bottom:none}
+.set .sl{flex:1;min-width:0}
+.set .sl b{display:block;font-size:13.5px;font-weight:600}
+.set>input{width:220px;flex:none}
+.savebar{position:sticky;bottom:14px;z-index:4;display:none;align-items:center;gap:10px;background:var(--card);border:1px solid var(--brand);border-radius:12px;padding:10px 16px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.savebar.on{display:flex}
+/* 运行日志 */
+.logs{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 0;font:12.5px/1.65 ui-monospace,SFMono-Regular,Consolas,"Microsoft YaHei",monospace;max-height:calc(100vh - 220px);min-height:200px;overflow:auto}
+.logs .ln{display:flex;gap:12px;padding:1px 16px;white-space:pre-wrap;word-break:break-all}
+.logs .ln:hover{background:var(--hover)}
+.logs .ln time{color:var(--sub);flex:none}
+.logs .ln.e{color:var(--err)}.logs .ln.w{color:var(--warn)}
+@media(max-width:1100px){.grid2,.grid-dash{grid-template-columns:1fr}}
 @media(max-width:900px){
   body{flex-direction:column}
   .side{width:100%;height:auto;flex-direction:row;align-items:center;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:0 6px;z-index:6}
@@ -110,19 +175,27 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
   .side .foot{margin:0 0 0 auto;border:none;padding:6px}
   .top{position:static;padding:0 14px;height:48px}.top .st span:not(:first-child){display:none}
   main{padding:14px}
+  .set{flex-wrap:wrap;gap:8px}.set>input{width:100%}
+  .stats.six{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bar select{max-width:none;flex:1}
 }
 </style>
 </head>
 <body>
 <aside class="side">
-  <div class="logo"><span class="ico">🎙</span><div>fish2api<small>本地 API 面板</small></div></div>
-  <div class="grp">面板</div>
+  <div class="logo"><span class="ico">🎙</span><div>fish2api<small>管理面板</small></div></div>
+  <div class="grp">概览</div>
   <button class="nav" data-v="dash"><span class="i">▦</span>仪表盘</button>
+  <button class="nav" data-v="logs"><span class="i">≡</span>请求记录</button>
+  <button class="nav" data-v="server"><span class="i">›_</span>运行日志</button>
+  <div class="grp">管理</div>
+  <button class="nav" data-v="accounts"><span class="i">◉</span>账号</button>
+  <button class="nav" data-v="keys"><span class="i">⚿</span>API Keys</button>
+  <button class="nav" data-v="settings"><span class="i">⚙</span>设置</button>
+  <div class="grp">工具</div>
   <button class="nav" data-v="tts"><span class="i">♪</span>语音合成</button>
   <button class="nav" data-v="media"><span class="i">▶</span>图像/视频</button>
   <button class="nav" data-v="history"><span class="i">◷</span>生成历史</button>
-  <button class="nav" data-v="keys"><span class="i">⚿</span>API Keys</button>
-  <div class="grp">其他</div>
   <button class="nav" data-v="help"><span class="i">?</span>使用说明</button>
   <div class="foot"><button class="sm" id="themeBtn" title="切换深浅色">🌙</button><span class="ver">Go 版</span></div>
 </aside>
@@ -132,10 +205,60 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
 
 <!-- ================= 仪表盘 ================= -->
 <div class="view" id="v-dash">
-  <div class="stats" id="stats"></div>
+  <div class="stats six" id="stats"></div>
+  <div class="grid-dash">
+    <div class="card">
+      <h3>今日调用 <span class="hint" style="font-weight:400">按小时</span><span class="sp"></span><span class="legend"><span><i style="background:var(--c-ok)"></i>成功</span><span><i style="background:var(--c-bad)"></i>失败</span></span></h3>
+      <div class="chart" id="trend"></div>
+    </div>
+    <div class="card">
+      <h3>账号 <span class="sp"></span><button class="sm" data-go="accounts">管理 →</button></h3>
+      <div id="dashAcc"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>最近请求 <span class="sp"></span><button class="sm" data-go="logs">全部记录 →</button></h3>
+    <div class="tw"><table id="dashRecent"></table></div>
+  </div>
+</div>
+
+<!-- ================= 请求记录 ================= -->
+<div class="view" id="v-logs">
+  <div class="card bar">
+    <div class="seg" id="lRange"><button data-r="today" class="on">今天</button><button data-r="yesterday">昨天</button><button data-r="7">7 天</button><button data-r="30">30 天</button><button data-r="all">全部</button></div>
+    <input id="lQ" class="grow" placeholder="搜文字、声音、错误、IP">
+    <select id="lKey"></select>
+    <select id="lAcc"></select>
+    <select id="lStatus"><option value="">全部结果</option><option value="ok">成功</option><option value="fail">失败</option><option value="cache">命中缓存</option></select>
+    <label class="swl"><span class="sw"><input type="checkbox" id="lAuto"><span></span></span>自动刷新</label>
+    <button class="sm" id="lRefresh">刷新</button>
+  </div>
+  <div class="stats six" id="lStats"></div>
+  <div class="card">
+    <h3><span class="seg" id="lTab"><button data-t="items" class="on">明细</button><button data-t="by_key">按 Key</button><button data-t="by_account">按账号</button></span><span class="sp"></span><span class="hint" id="lCount" style="font-weight:400"></span></h3>
+    <div class="tw"><table id="lTable"></table></div>
+    <div class="pager" id="lPager"></div>
+  </div>
+</div>
+
+<!-- ================= 运行日志 ================= -->
+<div class="view" id="v-server">
+  <div class="card bar">
+    <input id="sQ" class="grow" placeholder="搜日志内容">
+    <label class="swl"><span class="sw"><input type="checkbox" id="sErr"><span></span></span>只看异常</label>
+    <label class="swl"><span class="sw"><input type="checkbox" id="sAuto" checked><span></span></span>自动刷新</label>
+    <button class="sm" id="sDown">下载</button>
+    <button class="sm danger" id="sClear">清空</button>
+  </div>
+  <div class="logs" id="sList"></div>
+  <p class="hint" style="margin:8px 2px 0">只留最近约 1000 行,服务重启后从头记。</p>
+</div>
+
+<!-- ================= 账号 ================= -->
+<div class="view" id="v-accounts">
   <div class="card">
     <h3>账号 <span class="sp"></span><button class="sm" id="refreshBal">刷新余额</button><button class="primary sm" id="addOpen">+ 添加账号</button></h3>
-    <div style="overflow-x:auto">
+    <div class="tw">
       <table id="accTable">
         <thead><tr><th>名称</th><th>邮箱</th><th>状态</th><th>token</th><th>套餐余额</th><th>操作</th></tr></thead>
         <tbody></tbody>
@@ -143,6 +266,12 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
     </div>
     <p class="hint" id="accHint" style="margin:10px 0 0"></p>
   </div>
+</div>
+
+<!-- ================= 设置 ================= -->
+<div class="view" id="v-settings">
+  <div id="setList"></div>
+  <div class="savebar" id="saveBar"><span id="saveTip" style="flex:1"></span><button class="sm" id="setUndo">撤销</button><button class="primary sm" id="setSave">保存</button></div>
 </div>
 
 <!-- ================= 语音合成 ================= -->
@@ -234,14 +363,9 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
 <!-- ================= API Keys ================= -->
 <div class="view" id="v-keys">
   <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <h3 style="margin:0;font-size:16px">使用者 API Keys</h3>
-      <span style="flex:1"></span>
-      <button class="primary" onclick="keyAdd()">+ 发放新 Key</button>
-      <button onclick="keysLoad()">刷新</button>
-    </div>
-    <p class="hint" style="margin:0 0 10px">使用者 key 只能调合成与图像/视频等只读接口,碰不了账号管理;随时可吊销。调用姿势:<code>Authorization: Bearer &lt;key&gt;</code> / <code>X-Api-Key: &lt;key&gt;</code> / <code>?key=</code></p>
-    <table id="keyTable"><thead><tr><th>Key</th><th style="width:160px">操作</th></tr></thead><tbody></tbody></table>
+    <h3>使用者 API Keys <span class="sp"></span><button class="primary sm" id="keyNew">+ 发放新 Key</button></h3>
+    <p class="hint" style="margin:0 0 10px">发给 new-api、酒馆或朋友用:只能合成和查询,看不到账号、Key 和设置;停用后立刻 401。管理员密钥是环境变量 <code>ACCESS_KEY</code>,不在这里管。</p>
+    <div class="tw"><table id="keyTable"><thead><tr><th>名字</th><th>Key</th><th>启用</th><th>调用</th><th>最后使用</th><th>发放时间</th><th></th></tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
@@ -253,27 +377,16 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
   </div>
   <div class="card">
     <h3>token 怎么来</h3>
-    <p><b>最稳的办法</b>:仪表盘「更新 token」里有个书签按钮,拖到书签栏;用你平时的浏览器登录 fish.audio,在它页面上点一下书签,token 就自动发过来。本地面板、服务器面板各生成各的书签。</p>
-    <p><b>自动续期</b>:token 是不透明的会话串,没有过期时间,程序每 10 分钟向上游验证一次,失效了就按账号的「续期」方式重新登录:GitHub / Google 登录不经过 reCAPTCHA,能在后台无头完成(每个账号有自己的浏览器配置目录 <code>browser-profile/账号名</code>,第一次要你在「弹窗登录」里用它登一次);邮箱密码自动填表要过 reCAPTCHA,基本会被拦。设置了 <code>PUSH_URL</code> / <code>PUSH_KEY</code> 时拿到 token 会推送到服务器。</p>
+    <p><b>最稳的办法</b>:「账号」页「更新 token」里有个书签按钮,拖到书签栏;用你平时的浏览器登录 fish.audio,在它页面上点一下书签,token 就自动发过来。</p>
+    <p><b>自动续期</b>:token 没有过期时间,服务每 10 分钟向上游验证一次,失效了就按账号的「续期」方式重新登录:GitHub / Google 能在后台无头完成;邮箱密码要过 reCAPTCHA,基本会被拦。</p>
     <p><b>手动</b>:fish.audio 页面按 F12 → Application → Local Storage → 复制 <code>token</code> 的值,到「更新 token」粘贴。</p>
   </div>
   <div class="card">
     <h3>脚本调用</h3>
     <pre id="curlDemo"></pre>
     <p class="hint" style="margin:8px 0 0">文本里可用网页同款标签:<code>[停顿]</code> <code>[笑着说]</code> <code>[叹气]</code> <code>&lt;whisper&gt;悄悄话&lt;/whisper&gt;</code> <code>&lt;strong&gt;重读&lt;/strong&gt;</code>。不带 <code>X-Account</code> 时在可用账号间轮询。</p>
-    <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字),可以直接作为 OpenAI 类型渠道接进 new-api,密钥就是 ACCESS_KEY。</p>
-  </div>
-  <div class="card">
-    <h3>环境变量</h3>
-    <table class="kvt">
-      <tr><td><code>HOST</code> / <code>PORT</code></td><td>监听地址,默认 127.0.0.1:8765(Docker 里 HOST=0.0.0.0)</td></tr>
-      <tr><td><code>ACCESS_KEY</code></td><td>设了之后所有 /api/* 都要带 <code>Authorization: Bearer &lt;key&gt;</code>,公网部署必设</td></tr>
-      <tr><td><code>PUSH_URL</code> / <code>PUSH_KEY</code></td><td>本地实例把登录拿到的 token 推送到这个服务器(填它的地址和 ACCESS_KEY)</td></tr>
-      <tr><td><code>FISH_API_KEY</code></td><td>API key 模式(/api/tts)用</td></tr>
-      <tr><td><code>TOKEN_VERIFY_INTERVAL_SECONDS</code></td><td>多久向上游验证一次 token 还有效,默认 600</td></tr>
-      <tr><td><code>LOGIN_HEADLESS</code></td><td>1=自动登录用无头浏览器(更易被 reCAPTCHA 拒);交互登录始终有头</td></tr>
-      <tr><td><code>ACCOUNTS_FILE</code></td><td>账号库路径,默认 accounts.json(本地含明文密码,注意保管)</td></tr>
-    </table>
+    <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字),可以直接作为 OpenAI 类型渠道接进 new-api,密钥填一把「API Keys」页发的 key。</p>
+    <p class="hint" style="margin:8px 0 0">缓存、冷却、人机验证这些在「设置」页改,保存就生效;监听地址、端口、<code>ACCESS_KEY</code> 只能改环境变量后重启。</p>
   </div>
 </div>
 </main>
@@ -310,7 +423,23 @@ code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px
   <div class="dlg-btns"><button class="primary" id="kSave">进入</button></div>
   <div class="hint" id="kState" style="margin-top:10px"></div>
 </dialog>
+
+<dialog id="dlgReq" style="max-width:620px">
+  <h3>请求详情</h3>
+  <table class="kvt" id="rqKv" style="margin-top:8px"></table>
+  <div id="rqText" style="white-space:pre-wrap;word-break:break-all;background:var(--dim-bg);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:13px"></div>
+  <div class="err-box" id="rqErr"></div>
+  <audio id="rqAudio" controls style="display:none"></audio>
+  <div class="dlg-btns"><button id="rqClose">关闭</button></div>
+</dialog>
+
+<dialog id="dlgAsk">
+  <h3 id="askTitle"></h3>
+  <label id="askLabel"></label><input id="askInput">
+  <div class="dlg-btns"><button id="askCancel">取消</button><button class="primary" id="askOk">确定</button></div>
+</dialog>
 <div id="toast"></div>
+<div id="tip"></div>
 
 <script>
 var BASE=location.origin, health={}, accounts=[], balances={}, voices=[], selVoice=null, busy=false;
@@ -325,17 +454,24 @@ function fmtNum(n){n=n||0;return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).to
 function applyTheme(t){document.documentElement.dataset.theme=t;$('themeBtn').textContent=t==='dark'?'☀️':'🌙'}
 applyTheme(LS.get('fish_theme',matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
 $('themeBtn').onclick=function(){var t=document.documentElement.dataset.theme==='dark'?'light':'dark';LS.set('fish_theme',t);applyTheme(t)};
-var titles={dash:'仪表盘',tts:'语音合成',media:'图像/视频',history:'生成历史',keys:'API Keys',help:'使用说明'};
+var titles={dash:'仪表盘',logs:'请求记录',server:'运行日志',accounts:'账号',keys:'API Keys',settings:'设置',tts:'语音合成',media:'图像/视频',history:'生成历史',help:'使用说明'};
+var cur='dash', booted=false;
 document.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){show(b.dataset.v)}});
+document.addEventListener('click',function(e){var g=e.target.closest('[data-go]');if(g)show(g.dataset.go)});
 function show(v){
+  cur=v;
   document.querySelectorAll('.nav').forEach(function(x){x.classList.toggle('active',x.dataset.v===v)});
   document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('active',x.id==='v-'+v)});
   $('title').textContent=titles[v]; LS.set('fish_view',v);
   if(v==='history') renderHistory();
-  if(v==='keys') keysLoad();
   if(v==='media') mediaInit();
+  if(booted) refreshView();
 }
-show(titles[LS.get('fish_view','dash')]?LS.get('fish_view','dash'):'dash');
+// refreshView 进页面或定时刷新时拉当前页的数据(设置页只在进来时拉,免得冲掉没保存的修改)
+function refreshView(){
+  if(cur==='dash') loadDash(); else if(cur==='logs') loadLogs(); else if(cur==='server') loadServer();
+  else if(cur==='keys') keysLoad(); else if(cur==='settings') loadSettings();
+}
 
 // ---------- 请求(自动带访问密钥;401 且服务要密钥时弹输入框) ----------
 function api(path,opts){
@@ -354,31 +490,38 @@ function apiJSON(path,opts){
   })});
 }
 function needKey(){ if(dlgKey.open) return; $('kInput').value=''; $('kState').textContent=LS.get('fish_key','')?'密钥不对或已更换,请重新输入':''; dlgKey.showModal(); }
-$('kSave').onclick=function(){var k=$('kInput').value.trim(); if(!k) return; LS.set('fish_key',k); dlgKey.close(); boot();};
+// 先拿 /api/keys(只有管理员能看)试一下:401 = 不对,403 = 是使用者 key,登不了面板
+$('kSave').onclick=function(){
+  var k=$('kInput').value.trim(); if(!k) return;
+  $('kState').textContent='验证中…';
+  fetch(BASE+'/api/keys',{headers:{Authorization:'Bearer '+k}}).then(function(res){
+    if(res.status===403) throw new Error('这是使用者 API key,只能调接口;登录面板要用管理员密钥 ACCESS_KEY');
+    if(!res.ok) throw new Error('密钥不对');
+    LS.set('fish_key',k); dlgKey.close(); boot();
+  }).catch(function(e){$('kState').textContent='✗ '+e.message});
+};
 $('kInput').onkeydown=function(e){if(e.key==='Enter')$('kSave').click()};
 
 // ---------- 仪表盘 ----------
 function loadHealth(){return apiJSON('/health').then(function(d){health=d;renderHealth()})}
-function stat(l,n,c,ic,s){return '<div class="stat"><div class="l"><span class="ic" style="background:'+c+'">'+ic+'</span>'+esc(l)+'</div><div class="n" title="'+esc(n)+'">'+esc(n)+'</div><div class="s" title="'+esc(s)+'">'+esc(s)+'</div></div>'}
+function stat(l,n,c,ic,s,id){return '<div class="stat"'+(id?' id="'+id+'"':'')+'><div class="l"><span class="ic" style="background:'+c+'">'+ic+'</span>'+esc(l)+'</div><div class="n" title="'+esc(n)+'">'+esc(n)+'</div><div class="s" title="'+esc(s)+'">'+esc(s)+'</div></div>'}
 function renderHealth(){
-  var d=health, push=(d.push_url||'').replace(/^https?:\/\//,'');
+  var d=health;
   $('pill').innerHTML='<span><span class="dot" style="background:var(--ok)"></span>服务正常</span><span>账号 '+d.accounts_valid+'/'+d.accounts_total+' 可用</span>'+(d.browser_login?'':'<span class="tag t-dim">服务器模式</span>');
-  $('stats').innerHTML=
-    stat('账号总数',d.accounts_total,'#2b6de9','▣','含未登录和已过期的')+
-    stat('可用账号',d.accounts_valid,'#16a34a','✓','token 上游验证通过的,轮询只用这些')+
-    stat('登录方式',d.browser_login?'本机浏览器':'只收 token','#d97706','⇄',d.browser_login?(push?'登录后推送到 '+push:'自动续期 + 弹窗登录'):'由本地实例推送,或手动粘贴')+
-    stat('API key 模式',d.api_key_configured?'已配置':'未配置','#7c3aed','⚿','/api/tts 走官方接口,扣 API 积分');
   $('accHint').textContent=d.browser_login
     ?'token 每 10 分钟向上游验证一次,失效了会按「续期」方式自动重新登录(GitHub / Google 不经过 reCAPTCHA;密码自动填表基本会被拦)。第一次请用「弹窗登录」在窗口里用选定的方式登一遍。'
-    :'这台机器没有浏览器:在本地电脑运行本程序登录后会自动把 token 推送过来;也可以点「更新 token」手动粘贴。';
+    :'服务器上没有弹窗登录:用「更新 token」里的书签把 token 发过来,或者手动粘贴。token 每 10 分钟向上游验证一次。';
   document.querySelectorAll('.only-browser').forEach(function(e){e.style.display=d.browser_login?'':'none'});
-  $('curlDemo').textContent='curl -X POST '+BASE+'/api/web/tts \\\n'+(d.access_key_required?'  -H "Authorization: Bearer <ACCESS_KEY>" \\\n':'')+
+  $('curlDemo').textContent='curl -X POST '+BASE+'/api/web/tts \\\n'+(d.access_key_required?'  -H "Authorization: Bearer <API Key>" \\\n':'')+
     '  -H "Content-Type: application/json" -H "X-Account: acc1" \\\n  -d \'{"text":"你好 [停顿] 世界","voice_id":"<声音ID>","backend":"drama-3"}\' \\\n  --output out.mp3';
 }
+var accSig='';
 function loadAccounts(){
   return apiJSON('/api/accounts').then(function(d){
-    accounts=d.accounts||[]; renderAccounts(); refreshAccountSelect();
+    accounts=d.accounts||[];
     accounts.forEach(function(a){if(a.usable&&!(a.name in balances)) loadBalance(a.name)});
+    var s=JSON.stringify(accounts); if(s===accSig) return; // 没变就不重画,免得把正在点的下拉框冲掉
+    accSig=s; renderAccounts(); refreshAccountSelect();
   });
 }
 function fmtLeft(a){
@@ -393,11 +536,13 @@ function fmtLeft(a){
   var s=d>0?d+'天'+hh+'小时':(hh>0?hh+'小时'+mm+'分':mm+'分钟');
   return '<span class="tag '+(sec<3600?'t-warn':'t-ok')+'">剩余 '+s+'</span>';
 }
+var ST={ok:['可用','t-ok'],no_token:['无 token','t-warn'],login_failed:['登录失败','t-err']};
+function statusTag(a){var s=ST[a.status]||[a.status,'t-warn'];return '<span class="tag '+s[1]+'">'+esc(s[0])+'</span>'}
 function renderAccounts(){
+  renderDashAcc();
   var tb=$('accTable').tBodies[0];
   if(!accounts.length){tb.innerHTML='<tr><td colspan=6 class="hint" style="text-align:center;padding:22px">还没有账号,点右上角「+ 添加账号」</td></tr>';return}
   tb.innerHTML=accounts.map(function(a){
-    var cls=a.status==='ok'?'t-ok':(a.status==='login_failed'?'t-err':'t-warn');
     var exp=a.expires_at?'<div class="hint">'+esc(a.expires_at.replace('T',' ').slice(0,16))+'</div>':'';
     var err=a.last_error?'<div class="hint" style="max-width:240px;white-space:normal">'+esc(a.last_error)+'</div>':'';
     var btns='';
@@ -409,7 +554,7 @@ function renderAccounts(){
     }
     btns+='<button class="sm" data-act="token">更新 token</button> <button class="sm danger" data-act="del">删除</button>';
     return '<tr data-name="'+esc(a.name)+'"><td><b>'+esc(a.name)+'</b></td><td>'+esc(a.email)+'</td>'+
-      '<td><span class="tag '+cls+'">'+esc(a.status)+'</span>'+err+'</td><td>'+fmtLeft(a)+exp+'</td>'+
+      '<td>'+statusTag(a)+err+'</td><td>'+fmtLeft(a)+exp+'</td>'+
       '<td>'+balanceCell(a)+'</td><td style="white-space:nowrap">'+btns+'</td></tr>';
   }).join('');
 }
@@ -417,28 +562,20 @@ function balanceCell(a){
   if(!a.usable) return '<span class="hint">—</span>';
   var b=balances[a.name]; return b===undefined?'<span class="spin"></span>':b;
 }
+var credit={}; // 账号名 → 套餐余额数字(仪表盘合计用)
 function loadBalance(name){
   balances[name]=undefined;
   apiJSON('/api/web/credit?account='+encodeURIComponent(name))
-    .then(function(d){balances[name]=fmtCredit(d.package)})
-    .catch(function(){balances[name]='<span class="tag t-err">查询失败</span>'})
+    .then(function(d){var p=d.package;credit[name]=p&&typeof p.balance==='number'?p.balance:null;balances[name]=fmtCredit(p)})
+    .catch(function(){credit[name]=null;balances[name]='<span class="tag t-err">查询失败</span>'})
     .then(renderAccounts);
 }
-// 套餐钱包的字段名还没用真实账号核对过:优先挑名字像余额的数字字段,其余放 title 里
+// 套餐钱包:balance 剩余 / total 本期总额 / type 套餐类型(字段 2026-10-25 用真账号核对过)
 function fmtCredit(p){
-  if(!p||typeof p!=='object') return '<span class="hint">—</span>';
-  if(p.status) return '<span class="tag t-err">HTTP '+p.status+'</span>';
-  if(p.error) return '<span class="tag t-err">失败</span>';
-  if(typeof p.balance==='number'){ // 套餐钱包:balance 剩余 / total 本期总额,type 是套餐类型
-    var extra=p.extra_balance?' <span class="hint">+'+p.extra_balance.toLocaleString()+' 额外</span>':'';
-    var end=p.current_period_end?'<div class="hint">本期到 '+esc(String(p.current_period_end).slice(0,10))+'</div>':'';
-    return '<div style="white-space:nowrap"><b>'+p.balance.toLocaleString()+'</b> <span class="hint">/ '+(p.total||0).toLocaleString()+'</span> <span class="tag t-dim">'+esc(p.type||'')+'</span>'+extra+end+'</div>';
-  }
-  var nums=Object.keys(p).filter(function(k){return typeof p[k]==='number'});
-  var main=nums.filter(function(k){return /credit|balance|remain|left|quota/i.test(k)});
-  var show=(main.length?main:nums).slice(0,3), raw=esc(JSON.stringify(p));
-  if(!show.length) return '<span class="hint" title="'+raw+'">'+raw.slice(0,36)+'…</span>';
-  return '<div title="'+raw+'" style="white-space:nowrap">'+show.map(function(k){return '<b>'+p[k].toLocaleString()+'</b> <span class="hint">'+esc(k)+'</span>'}).join('<br>')+'</div>';
+  if(!p||typeof p.balance!=='number') return '<span class="tag t-err">'+(p&&p.status?'HTTP '+p.status:'查询失败')+'</span>';
+  var extra=p.extra_balance?' <span class="hint">+'+p.extra_balance.toLocaleString()+' 额外</span>':'';
+  var end=p.current_period_end?'<div class="hint">本期到 '+esc(String(p.current_period_end).slice(0,10))+'</div>':'';
+  return '<div style="white-space:nowrap"><b>'+p.balance.toLocaleString()+'</b> <span class="hint">/ '+(p.total||0).toLocaleString()+'</span> <span class="tag t-dim">'+esc(p.type||'')+'</span>'+extra+end+'</div>';
 }
 $('accTable').onclick=function(e){
   var b=e.target.closest('button[data-act]'); if(!b) return;
@@ -514,7 +651,7 @@ function voiceSearch(){
   var q=$('voiceQ').value.trim(), lang=$('voiceLang').value;
   $('voiceList').innerHTML='<div class="hint" style="padding:12px"><span class="spin"></span>搜索中…</div>';
   apiJSON('/api/voices?page_size=15'+(q?'&title='+encodeURIComponent(q):'&sort_by=task_count')+(lang?'&language='+lang:''))
-    .then(function(d){voices=d.items||[];renderVoices()})
+    .then(function(d){voices=d.items||[];voices.forEach(function(v){vnames[v._id]=v.title});renderVoices()})
     .catch(function(e){$('voiceList').innerHTML='<div class="hint" style="padding:12px">搜索失败: '+esc(e.message)+'</div>'});
 }
 function renderVoices(){
@@ -574,10 +711,10 @@ $('tagChips').onclick=function(e){
 
 // ---------- 合成 ----------
 $('genBtn').onclick=generate;
-function showErr(m){$('genErr').textContent=m;$('genErr').style.display='block'}
+function showErr(m,id){var e=$(id||'genErr');e.textContent=m;e.style.display='block'}
 function generate(){
   var text=$('text').value.trim(); if(!text) return showErr('请输入文本');
-  var acc=$('account').value; if(!acc) return showErr('没有可用账号:先在仪表盘添加并登录账号');
+  var acc=$('account').value; if(!acc) return showErr('没有可用账号:先在「账号」页添加一个');
   savePrefs(); var btn=$('genBtn'); btn.disabled=true;
   $('genState').innerHTML='<span class="spin"></span>合成中…'; $('genErr').style.display='none';
   var body={text:text,backend:$('backend').value,format:$('fmt').value,prosody:{speed:parseFloat($('speed').value),pitch:1.0,volume:parseFloat($('vol').value)}};
@@ -585,9 +722,9 @@ function generate(){
   var t0=Date.now();
   api('/api/web/tts',{method:'POST',headers:{'Content-Type':'application/json','X-Account':acc},body:JSON.stringify(body)}).then(function(res){
     if(!res.ok) return res.text().then(function(t){var d;try{d=JSON.parse(t)}catch(e){}throw new Error((d&&(d.detail||d.message))||('HTTP '+res.status+' '+t.slice(0,200)))});
-    var taskId=res.headers.get('X-Task-Id')||'';
+    var taskId=res.headers.get('X-Task-Id')||'', cached=res.headers.get('X-Cache')==='HIT';
     return res.blob().then(function(blob){
-      var rec={id:Date.now(),time:new Date().toISOString(),text:text,voice:selVoice?selVoice.title:'默认声音',voice_id:selVoice?selVoice.id:'',backend:body.backend,format:body.format,account:acc,task_id:taskId,size:blob.size,ms:Date.now()-t0};
+      var rec={id:Date.now(),time:new Date().toISOString(),text:text,voice:selVoice?selVoice.title:'默认声音',voice_id:selVoice?selVoice.id:'',backend:body.backend,format:body.format,account:acc,task_id:taskId,size:blob.size,ms:Date.now()-t0,cache:cached};
       showResult(rec,blob); histAdd(rec,blob); delete balances[acc]; loadAccounts();
       $('genState').textContent='✓ 完成';
     });
@@ -596,7 +733,7 @@ function generate(){
 function showResult(rec,blob){
   var url=URL.createObjectURL(blob), p=$('player');
   p.src=url; $('dl').href=url; $('dl').download='fish_'+rec.id+'.'+rec.format;
-  $('meta').textContent='耗时 '+(rec.ms/1000).toFixed(1)+'s · '+(rec.size/1024).toFixed(0)+' KB · '+rec.voice+' · '+rec.backend+(rec.task_id?' · task '+rec.task_id.slice(0,8):'');
+  $('meta').textContent='耗时 '+(rec.ms/1000).toFixed(1)+'s · '+(rec.size/1024).toFixed(0)+' KB · '+rec.voice+' · '+rec.backend+(rec.task_id?' · task '+rec.task_id.slice(0,8):'')+(rec.cache?' · 命中缓存,没扣额度':'');
   $('result').style.display='block'; p.play().catch(function(){});
 }
 
@@ -641,28 +778,338 @@ $('clearHist').onclick=function(){
   histAll().then(function(all){return Promise.all(all.map(function(r){return histDel(r.id)}))}).then(renderHistory);
 };
 
+// ---------- 通用小工具 ----------
+function pad(n){return n<10?'0'+n:''+n}
+function pct(a,b){return b?(a/b*100).toFixed(a===b?0:1)+'%':'—'}
+function fmtMs(ms){return ms<1000?Math.round(ms)+' ms':(ms/1000).toFixed(1)+' s'}
+function fmtSize(b){return b>=1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB'}
+function dayStart(off){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+(off||0));return d.getTime()}
+// fmtTime 今天的只显示时分秒,别的天显示 月-日 时:分
+function fmtTime(ms){var d=new Date(ms),t=pad(d.getHours())+':'+pad(d.getMinutes());return ms>=dayStart()?t+':'+pad(d.getSeconds()):pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+t}
+function fmtAgo(ms){var s=(Date.now()-ms)/1000;return s<60?'刚刚':s<3600?Math.floor(s/60)+' 分钟前':s<86400?Math.floor(s/3600)+' 小时前':Math.floor(s/86400)+' 天前'}
+function jsonOpts(method,body){return {method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}}
+function segOn(seg,b){seg.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)})}
+function copyText(t,msg){
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(function(){ // 非 https 页面没有 clipboard,退回老办法
+    var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();
+  }).then(function(){toast(msg||'已复制')});
+}
+// ask 通用输入框(发 Key 起名、改名共用),取消返回 null
+function ask(title,label,val){
+  return new Promise(function(res){
+    $('askTitle').textContent=title; $('askLabel').textContent=label; $('askInput').value=val||'';
+    $('askOk').onclick=function(){var v=$('askInput').value.trim(); if(v){dlgAsk.close();res(v)}};
+    $('askCancel').onclick=function(){dlgAsk.close();res(null)};
+    $('askInput').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('askOk').click()}}; // 不拦的话,这次回车会落到重新获得焦点的按钮上,把弹窗又打开
+    dlgAsk.showModal(); $('askInput').focus(); $('askInput').select();
+  });
+}
+// voiceName 声音 ID 换成名字:搜过、选过的直接有,没见过的问一次上游,问到后重画当前页
+var vnames=LS.get('fish_vnames',{}), vAsked={};
+function voiceName(v){
+  if(!v) return '默认声音';
+  if(vnames[v]||!/^[0-9a-f]{32}$/.test(v)) return vnames[v]||v;
+  if(!vAsked[v]){vAsked[v]=1;apiJSON('/api/voices/'+v).then(function(d){
+    if(!d||!d.title) return; vnames[v]=d.title; LS.set('fish_vnames',vnames);
+    clearTimeout(vAsked.t); vAsked.t=setTimeout(function(){if(cur==='logs')renderLogs();else if(cur==='dash')loadDash()},300);
+  }).catch(function(){})}
+  return v.slice(0,8)+'…';
+}
 
-// ---------- API Keys(仅管理员可见;使用者 key 的发放/吊销) ----------
+// ---------- 仪表盘:今天的统计、趋势、账号、最近请求 ----------
+function loadDash(){
+  return apiJSON('/api/logs/requests?from='+dayStart()+'&to='+dayStart(1)+'&bucket=3600000&limit=8').then(function(d){
+    var t=d.total, fail=t.calls-t.ok;
+    $('stats').innerHTML=
+      stat('今日调用',fmtNum(t.calls),'#2b6de9','↗','成功 '+t.ok+' · 失败 '+fail)+
+      stat('成功率',pct(t.ok,t.calls),'#16a34a','✓',fail?'失败的去「请求记录」看原因':'今天没有失败')+
+      stat('缓存命中',fmtNum(t.cache),'#0891b2','⟳','命中的不扣额度、秒回')+
+      stat('今日字数',fmtNum(t.chars),'#7c3aed','字',t.calls?'平均每次 '+Math.round(t.chars/t.calls)+' 字':'今天还没有调用')+
+      stat('平均耗时',t.calls?fmtMs(t.ms/t.calls):'—','#d97706','◷','含缓存命中')+
+      stat('套餐余额','—','#16a34a','◉','','balTile');
+    renderBalTile(); renderTrend(d.trend);
+    $('dashRecent').innerHTML=reqTable(d.items,true);
+  }).catch(function(){});
+}
+function renderBalTile(){
+  var el=$('balTile'); if(!el) return;
+  var sum=0, n=0; accounts.forEach(function(a){if(a.usable&&typeof credit[a.name]==='number'){sum+=credit[a.name];n++}});
+  el.outerHTML=stat('套餐余额',n?sum.toLocaleString():'—','#16a34a','◉',(health.accounts_valid||0)+' / '+(health.accounts_total||0)+' 个账号可用','balTile');
+}
+function renderDashAcc(){
+  renderBalTile();
+  $('dashAcc').innerHTML=accounts.length?accounts.map(function(a){
+    var c=credit[a.name];
+    var bal=!a.usable?'—':typeof c==='number'?c.toLocaleString():c===null?'<span class="hint">余额查询失败</span>':'<span class="spin"></span>';
+    return '<div class="mini"><b>'+esc(a.name)+'</b>'+statusTag(a)+'<span class="num">'+bal+'</span></div>';
+  }).join(''):'<p class="hint" style="margin:0">还没有账号,去「账号」页添加</p>';
+}
+// 趋势图:今天每小时成功/失败的堆叠柱;纵轴取整到 1/2/5×10ⁿ,鼠标移上去(或键盘聚焦)看具体数
+function renderTrend(trend){
+  trend=trend||[];
+  var max=0; trend.forEach(function(b){max=Math.max(max,b[0]+b[1])});
+  var step=max<=4?1:[1,2,5,10].map(function(m){return m*Math.pow(10,Math.floor(Math.log10(max/4)))}).find(function(m){return m>=max/4});
+  var top=Math.max(4,Math.ceil(max/step)*step), ticks=[], y=function(v){return v/top*100+'%'};
+  for(var v=0;v<=top;v+=step) ticks.push(v);
+  $('trend').innerHTML='<div class="cy">'+ticks.map(function(v){return '<span style="bottom:'+y(v)+'">'+fmtNum(v)+'</span>'}).join('')+'</div>'+
+    '<div class="cp">'+ticks.slice(1).map(function(v){return '<i style="bottom:'+y(v)+'"></i>'}).join('')+trend.map(function(b,h){
+      return '<div class="cb" tabindex="0" data-h="'+h+'" data-ok="'+b[0]+'" data-bad="'+b[1]+'">'+
+        (b[1]?'<span class="bad" style="height:'+y(b[1])+'"></span>':'')+(b[0]?'<span class="ok" style="height:'+y(b[0])+'"></span>':'')+'</div>';
+    }).join('')+'</div><div class="cx">'+trend.map(function(b,h){return '<span>'+(h%3?'':pad(h))+'</span>'}).join('')+'</div>';
+}
+function tipShow(e){
+  var b=e.target.closest('.cb'); if(!b) return;
+  var t=$('tip'), r=b.getBoundingClientRect(), h=+b.dataset.h; t.textContent='';
+  var head=document.createElement('div'); head.className='hint'; head.textContent=pad(h)+':00 – '+pad(h+1)+':00'; t.appendChild(head);
+  [['ok','成功'],['bad','失败']].forEach(function(s){
+    var row=document.createElement('div'), i=document.createElement('i'), n=document.createElement('b');
+    i.style.background='var(--c-'+s[0]+')'; n.textContent=b.dataset[s[0]]; row.append(i,n,' '+s[1]); t.appendChild(row);
+  });
+  t.style.display='block';
+  t.style.left=(r.right+8+t.offsetWidth>innerWidth?r.left-8-t.offsetWidth:r.right+8)+'px';
+  t.style.top=(r.top+r.height/2-t.offsetHeight/2)+'px';
+}
+function tipHide(){$('tip').style.display='none'}
+['pointerover','focusin'].forEach(function(ev){$('trend').addEventListener(ev,tipShow)});
+['pointerleave','focusout'].forEach(function(ev){$('trend').addEventListener(ev,tipHide)});
+
+// ---------- 请求记录 ----------
+var EP={web:'网页',openai:'OpenAI',api:'官方 API',media:'图像视频'}, reqs={};
+// reqTable 仪表盘「最近请求」(compact)和「请求记录」明细共用;点一行看详情,▶ 回放缓存里还在的音频
+function reqTable(items,compact){
+  if(!items||!items.length) return '<tbody><tr><td class="empty">'+(compact?'今天还没有请求':'没有符合条件的请求')+'</td></tr></tbody>';
+  return '<thead><tr><th>时间</th><th>调用方</th><th>账号</th><th>模型 · 声音</th><th>内容</th><th>结果</th><th>耗时</th>'+(compact?'':'<th></th>')+'</tr></thead><tbody>'+items.map(function(r){
+    reqs[r.id]=r;
+    return '<tr class="click" data-req="'+r.id+'"><td class="num">'+fmtTime(r.t)+'</td>'+
+      '<td style="white-space:nowrap">'+esc(r.key||'未带 key')+' <span class="tag t-dim">'+esc(EP[r.ep]||r.ep)+'</span></td>'+
+      '<td style="white-space:nowrap">'+esc(r.account||'—')+'</td>'+
+      '<td><div class="ell">'+esc(r.model||'')+(r.ep==='media'?'':' · '+esc(voiceName(r.voice)))+'</div></td>'+
+      '<td class="fill"><div class="ell">'+(r.text?esc(r.text):'<span class="hint">'+r.chars+' 字</span>')+'</div></td>'+
+      '<td style="white-space:nowrap">'+(r.status<400?'<span class="tag t-ok">成功</span>':'<span class="tag t-err" title="'+esc(r.err)+'">失败 '+r.status+'</span>')+(r.cache?' <span class="tag t-dim">缓存</span>':'')+'</td>'+
+      '<td class="num">'+fmtMs(r.ms)+'</td>'+(compact?'':'<td>'+(r.play?'<button class="sm" data-play-req="'+r.id+'" title="回放">▶</button>':'')+'</td>')+'</tr>';
+  }).join('')+'</tbody>';
+}
+document.addEventListener('click',function(e){
+  var p=e.target.closest('[data-play-req]'); if(p) return playReq(p);
+  var tr=e.target.closest('tr[data-req]'); if(tr) openReq(+tr.dataset.req);
+});
+var reqAudio=new Audio();
+function reqBlob(id){return api('/api/logs/requests/'+id+'/audio').then(function(res){if(!res.ok)throw new Error('这条的音频已经不在缓存里了');return res.blob()})}
+function playReq(btn){
+  if(!reqAudio.paused&&btn.textContent==='■') return reqAudio.pause();
+  reqBlob(btn.dataset.playReq).then(function(b){
+    document.querySelectorAll('[data-play-req]').forEach(function(x){x.textContent='▶'});
+    if(reqAudio.src) URL.revokeObjectURL(reqAudio.src);
+    reqAudio.src=URL.createObjectURL(b); reqAudio.play(); btn.textContent='■';
+    reqAudio.onended=reqAudio.onpause=function(){btn.textContent='▶'};
+  }).catch(function(e){toast(e.message)});
+}
+function openReq(id){
+  var r=reqs[id]; if(!r) return;
+  var vn=voiceName(r.voice), rows=[
+    ['时间',new Date(r.t).toLocaleString()],['调用方',(r.key||'未带 key')+' · '+(EP[r.ep]||r.ep)+(r.ip?' · '+r.ip:'')],
+    ['账号',r.account||'—(命中缓存或官方 API,没用账号)'],['模型',r.model||'—'],
+    ['声音',vn+(r.voice&&vn!==r.voice?'('+r.voice+')':'')],
+    ['结果',(r.status<400?'成功':'失败')+' · HTTP '+r.status+(r.cache?' · 命中缓存,没扣额度':'')],
+    ['耗时',fmtMs(r.ms)+(r.bytes&&r.ep!=='media'?' · '+fmtSize(r.bytes)+(r.format?' '+r.format:''):'')]];
+  $('rqKv').innerHTML=rows.map(function(x){return '<tr><td class="hint" style="white-space:nowrap">'+x[0]+'</td><td>'+esc(x[1])+'</td></tr>'}).join('');
+  $('rqText').textContent=(r.text||'(没记文字内容)')+'\n— '+r.chars+' 字';
+  $('rqErr').textContent=r.err||''; $('rqErr').style.display=r.err?'block':'none';
+  var au=$('rqAudio'); au.style.display='none'; au.removeAttribute('src');
+  if(r.play) reqBlob(id).then(function(b){au.src=URL.createObjectURL(b);au.style.display='block'}).catch(function(){});
+  dlgReq.showModal();
+}
+$('rqClose').onclick=function(){dlgReq.close()};
+dlgReq.onclose=function(){$('rqAudio').pause()};
+
+var lRange='today', lTab='items', lPage=0, lData=null, PAGE=50;
+function rangeQS(){
+  if(lRange==='today') return 'from='+dayStart();
+  if(lRange==='yesterday') return 'from='+dayStart(-1)+'&to='+dayStart();
+  return lRange==='all'?'':'from='+dayStart(1-lRange); // 7 天 = 今天 + 前 6 天
+}
+function loadLogs(){
+  var qs=[rangeQS(),'limit='+PAGE,'offset='+lPage*PAGE], q=$('lQ').value.trim(), k=$('lKey').value, a=$('lAcc').value, s=$('lStatus').value;
+  if(q) qs.push('q='+encodeURIComponent(q));
+  if(k!=='*') qs.push('key='+encodeURIComponent(k));
+  if(a!=='*') qs.push('account='+encodeURIComponent(a));
+  if(s) qs.push('status='+s);
+  return apiJSON('/api/logs/requests?'+qs.filter(Boolean).join('&')).then(function(d){lData=d;renderLogs()})
+    .catch(function(e){$('lTable').innerHTML='<tbody><tr><td class="empty">加载失败: '+esc(e.message)+'</td></tr></tbody>'});
+}
+// fillFacet 筛选下拉框跟着数据走:'*' = 全部,'' = 空的那一类(未带 key / 没用账号)
+function fillFacet(id,names,all,none){
+  var sel=$(id), v=sel.value||'*';
+  sel.innerHTML='<option value="*">'+all+'</option>'+(names||[]).map(function(n){return '<option value="'+esc(n)+'">'+esc(n||none)+'</option>'}).join('');
+  sel.value=v; if(sel.value!==v) sel.value='*';
+}
+function renderLogs(){
+  var d=lData; if(!d) return;
+  var t=d.total, fail=t.calls-t.ok, pages=Math.max(1,Math.ceil(t.calls/PAGE));
+  fillFacet('lKey',d.keys,'全部调用方','未带 key'); fillFacet('lAcc',d.accounts,'全部账号','没用账号');
+  $('lStats').innerHTML=stat('调用',fmtNum(t.calls),'#2b6de9','↗','符合筛选的')+stat('成功率',pct(t.ok,t.calls),'#16a34a','✓','成功 '+t.ok)+
+    stat('失败',fmtNum(fail),'#dc2626','✕',fail?'点一行看失败原因':'没有失败')+stat('缓存命中',fmtNum(t.cache),'#0891b2','⟳','不扣额度')+
+    stat('字数',fmtNum(t.chars),'#7c3aed','字',t.calls?'平均每次 '+Math.round(t.chars/t.calls)+' 字':'—')+stat('平均耗时',t.calls?fmtMs(t.ms/t.calls):'—','#d97706','◷','含缓存命中');
+  $('lCount').textContent='共 '+t.calls+' 条';
+  if(lTab==='items'){
+    $('lTable').innerHTML=reqTable(d.items);
+    $('lPager').innerHTML=pages>1?'<span>第 '+(lPage+1)+' / '+pages+' 页</span><button class="sm" data-pg="-1"'+(lPage?'':' disabled')+'>上一页</button><button class="sm" data-pg="1"'+(lPage+1<pages?'':' disabled')+'>下一页</button>':'';
+  }else{
+    $('lTable').innerHTML=groupTable(d[lTab],lTab==='by_key'?'调用方':'账号',lTab==='by_key'?'未带 key':'没用账号');
+    $('lPager').innerHTML='';
+  }
+}
+// groupTable 按 Key / 按账号汇总;点一行就筛出它的明细
+function groupTable(gs,label,none){
+  if(!gs||!gs.length) return '<tbody><tr><td class="empty">没有数据</td></tr></tbody>';
+  return '<thead><tr><th>'+label+'</th><th>调用</th><th>成功率</th><th>失败</th><th>缓存命中</th><th>字数</th><th>平均耗时</th><th>最后一次</th></tr></thead><tbody>'+gs.map(function(g){
+    return '<tr class="click" data-filter="'+esc(g.name)+'"><td><b>'+esc(g.name||none)+'</b></td><td class="num">'+g.calls+'</td><td class="num">'+pct(g.ok,g.calls)+'</td><td class="num">'+(g.calls-g.ok)+'</td>'+
+      '<td class="num">'+g.cache+'</td><td class="num">'+fmtNum(g.chars)+'</td><td class="num">'+fmtMs(g.ms/g.calls)+'</td><td class="num">'+fmtTime(g.last)+'</td></tr>';
+  }).join('')+'</tbody>';
+}
+fillFacet('lKey',[],'全部调用方'); fillFacet('lAcc',[],'全部账号');
+$('lRange').onclick=function(e){var b=e.target.closest('button');if(!b)return;lRange=b.dataset.r;segOn(this,b);lPage=0;loadLogs()};
+$('lTab').onclick=function(e){var b=e.target.closest('button');if(!b)return;lTab=b.dataset.t;segOn(this,b);renderLogs()};
+['lKey','lAcc','lStatus'].forEach(function(id){$(id).onchange=function(){lPage=0;loadLogs()}});
+$('lQ').oninput=function(){clearTimeout(this.t);this.t=setTimeout(function(){lPage=0;loadLogs()},350)};
+$('lRefresh').onclick=loadLogs;
+$('lPager').onclick=function(e){var b=e.target.closest('[data-pg]');if(b){lPage+=+b.dataset.pg;loadLogs()}};
+$('lTable').addEventListener('click',function(e){
+  var tr=e.target.closest('tr[data-filter]'); if(!tr) return;
+  $(lTab==='by_key'?'lKey':'lAcc').value=tr.dataset.filter;
+  lTab='items'; segOn($('lTab'),$('lTab').querySelector('[data-t=items]')); lPage=0; loadLogs();
+});
+
+// ---------- 运行日志(增量拉,最多留 2000 行) ----------
+var sLines=[], sLast=0;
+function loadServer(){
+  return apiJSON('/api/logs/server?after='+sLast).then(function(d){
+    if(d.last<sLast){sLines=[];sLast=0;return loadServer()} // 服务重启过,从头拉
+    if(d.lines.length){sLines=sLines.concat(d.lines).slice(-2000);sLast=d.lines[d.lines.length-1].id}
+    renderServer();
+  }).catch(function(){});
+}
+function lvl(m){return /失败|错误|无效|失效|拒绝|panic|error|fail|denied/i.test(m)?'e':/重试|冷却|超时|retry|timeout/i.test(m)?'w':''}
+function renderServer(){
+  var el=$('sList'), q=$('sQ').value.trim().toLowerCase(), bad=$('sErr').checked;
+  var atEnd=el.scrollTop+el.clientHeight>=el.scrollHeight-40; // 本来就在底部才跟着滚,往上翻着看时不打扰
+  var rows=sLines.filter(function(l){return (!bad||lvl(l.msg))&&(!q||l.msg.toLowerCase().indexOf(q)>=0)});
+  el.innerHTML=rows.length?rows.map(function(l){return '<div class="ln '+lvl(l.msg)+'"><time>'+fmtTime(l.t)+'</time><span>'+esc(l.msg)+'</span></div>'}).join('')
+    :'<div class="ln hint">'+(sLines.length?'没有符合条件的日志':'还没有日志')+'</div>';
+  if(atEnd) el.scrollTop=el.scrollHeight;
+}
+$('sQ').oninput=$('sErr').onchange=renderServer;
+$('sDown').onclick=function(){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([sLines.map(function(l){return new Date(l.t).toLocaleString()+'  '+l.msg}).join('\n')],{type:'text/plain'}));
+  a.download='fish2api-'+new Date().toISOString().slice(0,10)+'.log'; a.click();
+};
+$('sClear').onclick=function(){
+  if(confirm('清空面板里的运行日志?(只清这里,docker logs 里还在)')) apiJSON('/api/logs/server',{method:'DELETE'}).then(function(){sLines=[];renderServer()});
+};
+
+// ---------- API Keys ----------
+var keyList=[];
 function keysLoad(){
-  return apiJSON('/api/keys').then(function(d){
-    var tb=$('keyTable').tBodies[0];
-    var ks=(d&&d.keys)||[];
-    if(!ks.length){tb.innerHTML='<tr><td colspan=2 class="hint">还没有 key,点右上角「发放新 Key」</td></tr>';return}
-    tb.innerHTML=ks.map(function(k){
-      return "<tr><td><code>"+esc(k)+"</code></td><td><button class=\"danger\" onclick=\"keyReveal('"+esc(k)+"')\">吊销</button></td></tr>"
-    }).join('');
-  }).catch(function(e){$('keyTable').tBodies[0].innerHTML='<tr><td colspan=2 class="hint">加载失败:'+esc(e.message)+'</td></tr>'});
+  return Promise.all([apiJSON('/api/keys'),apiJSON('/api/logs/requests?limit=0').catch(function(){return {}})]).then(function(r){
+    var st={}; keyList=r[0].keys||[]; (r[1].by_key||[]).forEach(function(g){st[g.name]=g});
+    $('keyTable').tBodies[0].innerHTML=keyList.length?keyList.map(function(k){
+      var g=st[k.name];
+      return '<tr data-key="'+esc(k.name)+'"><td><b>'+esc(k.name)+'</b></td><td style="white-space:nowrap"><code>'+esc(k.key.slice(0,12)+'…'+k.key.slice(-4))+'</code> <button class="sm" data-k="copy">复制</button></td>'+
+        '<td><label class="sw"><input type="checkbox" data-k="on"'+(k.enabled?' checked':'')+'><span></span></label></td>'+
+        '<td class="num">'+(g?g.calls:0)+'</td><td class="num">'+(g?fmtAgo(g.last):'还没用过')+'</td><td class="num">'+fmtTime(k.created)+'</td>'+
+        '<td style="white-space:nowrap"><button class="sm" data-k="rename">改名</button> <button class="sm danger" data-k="del">吊销</button></td></tr>';
+    }).join(''):'<tr><td colspan=7 class="empty">还没有 key,点右上角「+ 发放新 Key」</td></tr>';
+  }).catch(function(e){$('keyTable').tBodies[0].innerHTML='<tr><td colspan=7 class="empty">加载失败: '+esc(e.message)+'</td></tr>'});
 }
-function keyAdd(){
-  apiJSON('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}).then(function(d){
-    keysLoad();
-    if(d&&d.key){ if(navigator.clipboard){navigator.clipboard.writeText(d.key).then(function(){toast('已生成并复制到剪贴板')},function(){toast('已生成: '+d.key)})} else toast('已生成: '+d.key) }
-  }).catch(function(e){toast('发放失败: '+e.message)});
+function keyApi(name,method,body){return apiJSON('/api/keys/'+encodeURIComponent(name),body?jsonOpts(method,body):{method:method})}
+function failToast(e){toast('✗ '+e.message)}
+$('keyTable').onclick=function(e){
+  var b=e.target.closest('button[data-k]'); if(!b) return;
+  var name=b.closest('tr').dataset.key, k=keyList.find(function(x){return x.name===name});
+  if(b.dataset.k==='copy') copyText(k.key);
+  else if(b.dataset.k==='rename') ask('改名','新名字',name).then(function(v){if(v&&v!==name) keyApi(name,'PATCH',{name:v}).then(keysLoad,failToast)});
+  else if(confirm('吊销「'+name+'」?用它的客户端会立刻 401,吊销了找不回来')) keyApi(name,'DELETE').then(keysLoad,failToast);
+};
+$('keyTable').onchange=function(e){
+  var c=e.target.closest('input[data-k=on]'); if(!c) return;
+  var name=c.closest('tr').dataset.key;
+  keyApi(name,'PATCH',{enabled:c.checked}).then(function(){toast(c.checked?'已启用「'+name+'」':'已停用「'+name+'」,用它的请求会被拒')},function(e){c.checked=!c.checked;failToast(e)});
+};
+$('keyNew').onclick=function(){
+  ask('发放新 Key','给谁用(比如 new-api、酒馆、小明),请求记录里按它统计').then(function(name){
+    if(name) apiJSON('/api/keys',jsonOpts('POST',{name:name})).then(function(k){copyText(k.key,'已发放「'+name+'」,key 已复制');keysLoad()},failToast);
+  });
+};
+
+// ---------- 设置(保存后服务端立即生效;清空一项 = 退回环境变量/默认值) ----------
+// 每项:[环境变量, 名字, 默认值, 说明, 类型(省略=数字 / sw=开关 / pw=密码)]
+var SETS=[
+  ['账号与 token',[
+    ['TOKEN_VERIFY_INTERVAL_SECONDS','token 验证间隔(秒)','600','多久向 fish 确认一次 token 还能用,失效的提前踢掉'],
+    ['ACCOUNT_COOLDOWN_SECONDS','失败冷却(秒)','30','账号被 fish 限流或报错后,这段时间里轮询跳过它']]],
+  ['结果缓存',[
+    ['CACHE_MAX_MB','缓存上限(MB)','256','同样的文字 + 声音 + 参数直接回放,不扣额度;0 = 关闭'],
+    ['CACHE_MAX_ITEM_MB','单条上限(MB)','16','比这大的音频不缓存'],
+    ['CACHE_TTL_SECONDS','保留时间(秒)','86400','0 = 一直留着,直到被新的挤掉']]],
+  ['人机验证',[
+    ['RECAPTCHA_TTL_SECONDS','验证复用时间(秒)','100','一次验证能用多久,官方约 120 秒'],
+    ['RECAPTCHA_KEEPWARM','保持常热','0','快到期就自动换新,合成永远不用等验证;代价是更频繁地请求 Google','sw']]],
+  ['官方 API 与兜底',[
+    ['FISH_API_KEY','官方 API key','','/api/tts 用它调官方接口,扣 API 积分','pw'],
+    ['FISH_WEB_TOKEN','兜底网页 token','','账号库里没有可用账号时用它','pw']]],
+  ['请求记录',[
+    ['REQUEST_LOG_MAX','保留条数','5000','0 = 不再记录'],
+    ['REQUEST_LOG_TEXT','记录文字内容','1','记前 200 字,方便排查;关了只记字数','sw']]]
+];
+var SETMAP={}, setVals={}, setEnv={};
+SETS.forEach(function(g){g[1].forEach(function(s){SETMAP[s[0]]=s})});
+function loadSettings(){
+  return apiJSON('/api/settings').then(renderSettings).catch(function(e){$('setList').innerHTML='<div class="card hint">加载失败: '+esc(e.message)+'</div>'});
 }
-function keyReveal(k){
-  if(!confirm('确定吊销 '+k+' ?使用它的客户端会立刻 401')) return;
-  apiJSON('/api/keys',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})}).then(function(){keysLoad()}).catch(function(e){toast('吊销失败: '+e.message)});
+function setDef(k){return setEnv[k]||SETMAP[k][2]} // 清空后会退回的值
+function renderSettings(d){
+  setVals=d.values; setEnv=d.env;
+  $('setList').innerHTML=SETS.map(function(g){
+    return '<div class="card"><h3>'+g[0]+'</h3>'+g[1].map(function(s){
+      var k=s[0], v=setVals[k]||'', ctl=s[4]==='sw'
+        ?'<label class="sw"><input type="checkbox" data-set="'+k+'"'+((v||setDef(k))==='1'?' checked':'')+'><span></span></label>'
+        :'<input data-set="'+k+'" value="'+esc(v)+'" '+(s[4]==='pw'?'type="password" autocomplete="off" placeholder="没设置"':'type="number" min="0" placeholder="默认 '+setDef(k)+'"')+'>';
+      return '<div class="set"><div class="sl"><b>'+s[1]+'</b><span class="hint">'+s[3]+'</span></div>'+ctl+'</div>';
+    }).join('')+setExtra(g[0],d)+'</div>';
+  }).join('')+'<div class="card"><h3>运行信息 <span class="hint" style="font-weight:400">这些要改环境变量后重启</span></h3><table class="kvt">'+
+    [['监听地址',d.info.addr],['数据目录',d.info.data_dir],['浏览器',d.info.browser],['管理员密钥 ACCESS_KEY',health.access_key_required?'已设置':'没设置:谁都能访问,公网一定要设']]
+      .map(function(r){return '<tr><td class="hint" style="white-space:nowrap">'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</table></div>';
+  setDirty();
 }
+// setChanges 跟服务端的值比,收集改过的项;开关拨回「不覆盖时的样子」就发空值,删掉覆盖
+function setChanges(){
+  var ch={};
+  document.querySelectorAll('[data-set]').forEach(function(el){
+    var k=el.dataset.set, v;
+    if(el.type==='checkbox'){
+      v=el.checked?'1':'0';
+      if(v!==((setVals[k]||setDef(k))==='1'?'1':'0')) ch[k]=v===(setDef(k)==='1'?'1':'0')?'':v;
+    }else if((v=el.value.trim())!==(setVals[k]||'')) ch[k]=v;
+  });
+  return ch;
+}
+function setDirty(){var n=Object.keys(setChanges()).length;$('saveBar').classList.toggle('on',n>0);$('saveTip').textContent='改了 '+n+' 项,还没保存'}
+['input','change'].forEach(function(ev){$('setList').addEventListener(ev,setDirty)});
+$('setUndo').onclick=loadSettings;
+$('setSave').onclick=function(){apiJSON('/api/settings',jsonOpts('PUT',setChanges())).then(function(d){renderSettings(d);toast('✓ 已保存,马上生效')},failToast)};
+// 缓存、请求记录两组底下各有一行「现有多少 + 清空」;少用又删数据的按钮放这里,不放在常用的工具条上
+var CLEARS={'结果缓存':['/api/cache','当前占用','清空缓存','清空结果缓存?之后同样的请求会重新生成、重新扣额度'],
+  '请求记录':['/api/logs/requests','现有记录','清空记录','清空全部请求记录?清了就找不回来']};
+function setExtra(group,d){
+  var c=CLEARS[group]; if(!c) return '';
+  var n=group==='结果缓存'?d.cache.items+' 条 · '+fmtSize(d.cache.bytes):d.requests+' 条';
+  return '<div class="set"><div class="sl"><b>'+c[1]+'</b><span class="hint">'+n+'</span></div><button class="sm danger" data-clear="'+group+'">'+c[2]+'</button></div>';
+}
+$('setList').addEventListener('click',function(e){
+  var b=e.target.closest('[data-clear]'), c=b&&CLEARS[b.dataset.clear];
+  if(c&&confirm(c[3])) apiJSON(c[0],{method:'DELETE'}).then(function(){toast('✓ 已'+c[2]);loadSettings()},failToast);
+});
 
 // ---------- 图像/视频生成 ----------
 var mModels=[];
@@ -697,10 +1144,10 @@ function mediaFillModels(){
 }
 function mediaGen(){
   var acc=$('mAccount').value;
-  if(!acc){showErr('mErr','没有可用账号:先在仪表盘登录一个');return}
+  if(!acc){showErr('没有可用账号:先在「账号」页添加一个','mErr');return}
   var prompt=$('mPrompt').value.trim();
-  if(!prompt){showErr('mErr','请填写 Prompt');return}
-  var model=$('mModel').value; if(!model){showErr('mErr','没有可用模型');return}
+  if(!prompt){showErr('请填写 Prompt','mErr');return}
+  var model=$('mModel').value; if(!model){showErr('没有可用模型','mErr');return}
   var isVideo=/kling|sora|hailuo|minimax|wan-|veo|seedance|grok-imagine-video|gemini-omni|heygen/i.test(model);
   var variant=isVideo?'t2v':'t2i';
   var params={};
@@ -723,7 +1170,7 @@ function mediaGen(){
               'FREE_IMAGE_DAILY_LIMIT':'今日免费图像额度已用完',
               'Insufficient credits':'账户 credits 不足'};
     for(var k in tips){ if(m.indexOf(k)>=0){ m=tips[k]; break; } }
-    showErr('mErr',m)
+    showErr(m,'mErr')
   });
 }
 function renderMedia(d){
@@ -748,28 +1195,36 @@ function renderMedia(d){
   }
   $('mOut').innerHTML=html;
 }
-function showErr(id,m){var e=$(id);e.textContent=m;e.style.display='block'}
 
 // ---------- 启动 ----------
 function loadAll(){return loadHealth().then(loadAccounts).catch(function(){})}
-function boot(){return loadAll().then(voiceSearch).then(function(){if(health.access_key_required&&!isUserKeyOnly()) keysLoad()}).then(takeHashToken)}
-function isUserKeyOnly(){var k=LS.get('fish_key','');return k.indexOf('sk-fish-')===0}
+function boot(){return loadAll().then(function(){booted=true;refreshView()}).then(voiceSearch).then(takeHashToken)}
 // 书签打开的地址形如 /#account=xx&token=yy:存进对应账号,然后把地址栏里的 token 抹掉
 function takeHashToken(){
   var p=new URLSearchParams(location.hash.slice(1)), name=p.get('account'), tok=p.get('token');
   if(!name||!tok) return;
-  history.replaceState(null,'',location.pathname); show('dash');
+  history.replaceState(null,'',location.pathname); show('accounts');
   apiJSON('/api/accounts/'+encodeURIComponent(name)+'/token',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})})
     .then(function(d){toast(d.usable?'✓ 书签送来的 token 已存入账号 '+name:'⚠ token 已保存但不可用(可能已过期)');delete balances[name];loadAll()})
     .catch(function(e){toast('✗ 存 token 失败: '+e.message)});
 }
+show(titles[LS.get('fish_view','dash')]?LS.get('fish_view','dash'):'dash'); // 放在最后:各页的变量都定义好了再打开上次那页
 loadPrefs();
 apiJSON('/health').then(function(d){
   health=d; renderHealth();
   if(d.access_key_required&&!LS.get('fish_key','')) return needKey();
   boot();
 }).catch(function(){$('pill').innerHTML='<span class="tag t-err">服务无响应</span>'});
-setInterval(function(){if(!busy&&!dlgKey.open) loadAll().then(function(){if(document.getElementById('v-media').classList.contains('active')) mediaFillAccounts()})},15000);
+// 每 15 秒刷新账号和当前页(标签页在后台就不刷);运行日志页开着「自动刷新」时每 5 秒拉一次新日志
+setInterval(function(){
+  if(busy||dlgKey.open||document.hidden||!booted) return;
+  loadAll().then(function(){
+    if(cur==='media') mediaFillAccounts();
+    else if(cur==='dash') loadDash();
+    else if(cur==='logs'&&$('lAuto').checked) loadLogs();
+  });
+},15000);
+setInterval(function(){if(booted&&cur==='server'&&$('sAuto').checked&&!document.hidden) loadServer()},5000);
 </script>
 </body>
 </html>

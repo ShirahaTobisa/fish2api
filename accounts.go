@@ -45,10 +45,12 @@ func envIntZero(key string, def int) int {
 var (
 	refreshMargin      = envInt("TOKEN_REFRESH_MARGIN_SECONDS", 1800)     // 带过期时间的 token 剩余多少秒触发重登
 	checkInterval      = envInt("TOKEN_CHECK_INTERVAL_SECONDS", 60)       // 后台巡检周期
-	verifyEvery        = envInt("TOKEN_VERIFY_INTERVAL_SECONDS", 600)     // 多久向上游验证一次 token 还有效
 	loginTimeout       = envInt("LOGIN_TIMEOUT_SECONDS", 90)              // 自动登录超时
 	interactiveTimeout = envInt("LOGIN_INTERACTIVE_TIMEOUT_SECONDS", 300) // 交互登录等待人工操作的超时
 )
+
+// verifyEvery 多久向上游验证一次 token 还有效。面板「设置」里能改、保存即生效(见 admin.go),所以现读。
+func verifyEvery() int { return envInt("TOKEN_VERIFY_INTERVAL_SECONDS", 600) }
 
 // 自动登录失败后隔多久才再试,否则每轮巡检都会弹一次浏览器
 const retryGap = 10 * time.Minute
@@ -438,7 +440,7 @@ func (s *AccountStore) staleChecks() []string {
 	defer s.mu.Unlock()
 	var names []string
 	for _, a := range s.Accounts {
-		if a.Token != "" && float64(time.Now().Unix())-a.LastCheck >= float64(verifyEvery) {
+		if a.Token != "" && float64(time.Now().Unix())-a.LastCheck >= float64(verifyEvery()) {
 			names = append(names, a.Name)
 		}
 	}

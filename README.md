@@ -102,18 +102,30 @@ curl -X POST https://tts.example.com/api/web/tts \
 
 ## 面板
 
-仪表盘(账号、余额 `balance / total`、token 验证状态、续期方式)、语音合成(声音搜索 + 试听、标签插入、记住上次选择)、
-生成历史(存在浏览器里,可回放/下载)、深浅色、手机可用。面板和接口都用假 token 与真 token 测过;合成链路(含人机验证)已端到端实测出声。
+照 CPAMP(CPA-Manager-Plus)的思路做的管理面板,深浅色、手机可用:
+
+- **仪表盘**:今日调用、成功率、缓存命中、字数、平均耗时、套餐余额合计,按小时的成功/失败柱状图,账号概况,最近请求;
+- **请求记录**:服务端记下每一次合成(面板、new-api、脚本都算):时间、哪把 key 调的、用了哪个账号、模型、声音、字数、前 200 字原文、
+  成败和失败原因、耗时、是否命中缓存、来源 IP。按 今天 / 昨天 / 7 天 / 30 天 / 全部 看,能按 key、账号、结果筛选和搜文字,
+  可切「明细 / 按 Key / 按账号」汇总;点一行看详情,结果缓存里还在的能直接回放。存在数据目录的 `requests.jsonl`,重启不丢;
+- **运行日志**:程序日志(token 验证、续期、人机验证、推送……)在面板里看,不用 `docker logs`;只留最近约 1000 行;
+- **账号**:添加、更新 token(书签)、续期方式、余额;
+- **API Keys**:给 new-api / 酒馆 / 朋友各发一把使用者 key,有名字、能停用 / 改名 / 吊销,显示调用次数和最后使用时间;
+- **设置**:缓存、冷却、token 验证间隔、人机验证、官方 API key、请求记录保留条数这些,改了保存立即生效(存在数据目录的 `config.json`,
+  比环境变量优先;清空某项 = 退回环境变量/默认值);监听地址、端口、`ACCESS_KEY` 只能改环境变量后重启;
+- 工具页:语音合成(声音搜索 + 试听、标签插入、记住上次选择)、图像/视频、生成历史(存在浏览器里,可回放/下载)。
 
 ## 端点
 
 两级密钥(三种姿势通吃:`Authorization: Bearer <key>`、`X-Api-Key: <key>`、`?key=<key>`):
 
 - **`ACCESS_KEY`(管理员)**:全部接口,面板登录也用它;
-- **使用者 API key**(面板「API Keys」页签发放,`sk-fish-` 开头):**只能调合成与只读查询**
-  (`/api/tts`、`/api/web/tts`、`/v1/audio/speech`、`/v1/models`、`/api/models`、`/api/voices*`),
-  碰账号管理 `/api/accounts*` 返回 403;持久化在 `data/api_keys.txt`,面板可增删;
-- `ACCESS_KEY` 没设置时不拦任何请求(本机内网随意用)。
+- **使用者 API key**(面板「API Keys」页发放,`sk-fish-` 开头,每把有名字):**只能调合成与查询**
+  (`/v1/*`、`/api/tts`、`/api/models`、`/api/voices*`、`/api/web/*`,含图像/视频生成),
+  账号、key、设置、记录这些管理接口返回 403;停用的 key 返回 401。存在 `data/config.json`;
+  老版本的 `data/api_keys.txt` 第一次启动时自动导入(起名「旧 key N」),原文件改名为 `.imported` 留底;
+  不再读 `API_KEYS` 环境变量;
+- `ACCESS_KEY` 没设置时不拦任何请求(本机内网随意用),但带了 key 的请求照样按 key 名记进请求记录。
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
@@ -125,7 +137,13 @@ curl -X POST https://tts.example.com/api/web/tts \
 | POST | `/api/web/tts` | 管理员/使用者 | 网页 /task,**扣订阅套餐 credits**,响应头带 `X-Task-Id` |
 | GET | `/api/web/credit?account=` | 管理员/使用者 | 两个钱包余额 |
 | GET | `/api/web/task/{task_id}?account=` | 管理员/使用者 | 任务状态 |
-| GET / POST / DELETE | `/api/keys` | 仅管理员 | 使用者 key 列表 / 发放(`{"key":"","note":"给谁"}`,留空自动生成 `sk-fish-…`)/ 吊销 |
+| GET / POST | `/api/keys` | 仅管理员 | 使用者 key 列表 / 发放(`{"name":"给谁用"}`,key 自动生成 `sk-fish-…`) |
+| PATCH / DELETE | `/api/keys/{name}` | 仅管理员 | 改名 `{"name"}`、启用停用 `{"enabled"}` / 吊销 |
+| GET / PUT | `/api/settings` | 仅管理员 | 面板「设置」:读 / 改(`{"变量名":"值"}`,空值 = 退回环境变量/默认值),立即生效 |
+| DELETE | `/api/cache` | 仅管理员 | 清空结果缓存 |
+| GET / DELETE | `/api/logs/requests` | 仅管理员 | 请求记录:`from`/`to`(毫秒)、`key`、`account`、`status`(ok/fail/cache)、`q`、`limit`/`offset`、`bucket`(趋势每格毫秒);返回汇总、按 key/账号分组、趋势和明细 / 清空 |
+| GET | `/api/logs/requests/{id}/audio` | 仅管理员 | 回放这条的音频(结果缓存里还在才有) |
+| GET / DELETE | `/api/logs/server?after=` | 仅管理员 | 运行日志(增量拉)/ 清空面板里的这份 |
 | GET / POST | `/api/accounts` | 仅管理员 | 账号列表 / 添加账号(`name,email,password,token,provider,interactive`) |
 | POST | `/api/accounts/{name}/login?interactive=1` | 仅管理员 | 立即登录(1=弹窗人工);没浏览器的机器返回错误 |
 | PUT | `/api/accounts/{name}/token` | 仅管理员 | 给账号写入新 token(`{"token":...}`),不存在就新建;推送、粘贴、书签都走它,上游不认的 token 直接 400 |
@@ -193,32 +211,38 @@ curl -X POST https://tts.example.com/api/web/tts \
 
 ## 配置(环境变量)
 
+标 ✎ 的也能在面板「设置」里改,保存即生效,面板里的值比环境变量优先(存在数据目录的 `config.json`)。
+
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `HOST` / `PORT` | 127.0.0.1 / 8765 | 监听地址(Docker 里 HOST=0.0.0.0) |
 | `ACCESS_KEY` | - | 设了之后 `/api/*`、`/v1/*` 必须带密钥,公网部署必设 |
 | `PUSH_URL` / `PUSH_KEY` | - | 本地实例把 token 推送到这个服务器(它的地址和 ACCESS_KEY) |
-| `FISH_API_KEY` | - | API key 模式 |
-| `FISH_WEB_TOKEN` | - | 手动网页 token(账号库之外的兜底) |
-| `TOKEN_VERIFY_INTERVAL_SECONDS` | 600 | 多久向上游验证一次 token 还有效 |
+| `FISH_API_KEY` ✎ | - | API key 模式 |
+| `FISH_WEB_TOKEN` ✎ | - | 手动网页 token(账号库之外的兜底) |
+| `TOKEN_VERIFY_INTERVAL_SECONDS` ✎ | 600 | 多久向上游验证一次 token 还有效 |
 | `TOKEN_CHECK_INTERVAL_SECONDS` | 60 | 巡检周期 |
 | `TOKEN_REFRESH_MARGIN_SECONDS` | 1800 | 只对带过期时间的 JWT 有意义:剩余低于该值触发重登 |
 | `LOGIN_HEADLESS` | 0 | 1=密码自动登录用无头浏览器;交互登录始终有头;OAuth 续期始终无头 |
 | `LOGIN_TIMEOUT_SECONDS` | 90 | 自动登录超时 |
 | `LOGIN_INTERACTIVE_TIMEOUT_SECONDS` | 300 | 交互登录等待人工完成的时间 |
-| `RECAPTCHA_TTL_SECONDS` | 100 | 人机验证 token 缓存时长(官方有效期约 120 秒;调 1 可测试每次全新收割) |
+| `RECAPTCHA_TTL_SECONDS` ✎ | 100 | 人机验证 token 缓存时长(官方有效期约 120 秒;调 1 可测试每次全新收割) |
+| `RECAPTCHA_KEEPWARM` ✎ | 0 | 1=快到期就自动换新,合成永远不用等验证;代价是更频繁地请求 Google |
 | `RECAPTCHA_HEADED` | 0 | 1=人机验证改用有头窗口收割(排查风控问题时用,平时不需要) |
 | `RECAPTCHA_ALLOW_DOWNLOAD` | 0 | 1=没找到浏览器时允许 rod 自动下载无头内核(仅够人机验证收割;正式镜像已带 chromium,不需要) |
 | `DISABLE_LOGIN` | 0 | 1=服务器模式:关闭登录(容器无显示器),面板隐藏登录按钮,只收推送/粘贴的 token |
-| `CACHE_MAX_MB` | 256 | 结果缓存总量上限(MB);0=关闭缓存 |
-| `CACHE_MAX_ITEM_MB` | 16 | 单条音频超过该大小就不进缓存 |
-| `CACHE_TTL_SECONDS` | 86400 | 一条缓存最多留多久;0=不过期 |
-| `ACCOUNT_COOLDOWN_SECONDS` | 30 | 账号被上游 429/5xx 后冷却多久,期间轮询跳过它(X-Account 指定的不受影响) |
-| `ACCOUNTS_FILE` | accounts.json | 账号库路径 |
+| `CACHE_MAX_MB` ✎ | 256 | 结果缓存总量上限(MB);0=关闭缓存 |
+| `CACHE_MAX_ITEM_MB` ✎ | 16 | 单条音频超过该大小就不进缓存 |
+| `CACHE_TTL_SECONDS` ✎ | 86400 | 一条缓存最多留多久;0=不过期 |
+| `ACCOUNT_COOLDOWN_SECONDS` ✎ | 30 | 账号被上游 429/5xx 后冷却多久,期间轮询跳过它(X-Account 指定的不受影响) |
+| `REQUEST_LOG_MAX` ✎ | 5000 | 请求记录保留条数;0=不再记录 |
+| `REQUEST_LOG_TEXT` ✎ | 1 | 0=请求记录只记字数,不记文字内容(默认记前 200 字) |
+| `ACCOUNTS_FILE` | accounts.json | 账号库路径;`config.json`(面板设置 + 使用者 key)和 `requests.jsonl`(请求记录)放在同一个目录 |
 
 ## 文件
 
-`main.go` 接口与启动 · `accounts.go` 账号库/验证/续期 · `login.go` 浏览器登录 · `recaptcha.go` 网页合成的人机验证(自动收割 reCAPTCHA token)· `index.html` 面板(编译时打进二进制) ·
+`main.go` 接口与启动 · `accounts.go` 账号库/验证/续期 · `login.go` 浏览器登录 · `recaptcha.go` 网页合成的人机验证(自动收割 reCAPTCHA token)·
+`apikeys.go` 使用者 key 与鉴权 · `admin.go` 面板设置、请求记录、运行日志 · `media.go` 图像/视频生成 · `cache.go` 结果缓存 · `index.html` 面板(编译时打进二进制) ·
 `client_test.py` 命令行自测脚本 · `Dockerfile` / `docker-compose.yml` 服务器部署。
 
 ## 安全与注意事项
