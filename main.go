@@ -612,23 +612,53 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 // backendAlias OpenAI 的模型名映射到 Fish backend;其他名字去掉 fish- 前缀后原样当 backend。
 var backendAlias = map[string]string{"tts-1": "drama-3", "tts-1-hd": "drama-3", "gpt-4o-mini-tts": "drama-3"}
 
+// handleOpenAIModels 语音模型 + 账号能用的文生图模型(fish- 前缀,见 imageModels),new-api「获取模型」一键填。
 func handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
 	var data []map[string]any
-	for _, id := range []string{"drama-3", "s2.1-pro", "s2-pro", "s1", "tts-1", "tts-1-hd"} {
+	for _, id := range append([]string{"drama-3", "s2.1-pro", "s2-pro", "s1", "tts-1", "tts-1-hd"}, imageModels(r)...) {
 		data = append(data, map[string]any{"id": id, "object": "model", "owned_by": "fish-audio"})
 	}
 	writeJSON(w, 200, map[string]any{"object": "list", "data": data})
 }
 
+// fishExtras Fish 自己的合成参数,和 /api/web/tts 同名同义。OpenAI 接口里放顶层或 metadata 里都行:
+// 经 new-api 转发 /v1/audio/speech 时只有 metadata 会原样保留,其他不认识的字段会被丢掉。
+type fishExtras struct {
+	Prosody   map[string]any `json:"prosody"` // speed / pitch / volume / normalize_loudness,给几个改几个
+	Latency   string         `json:"latency"`
+	Normalize *bool          `json:"normalize"`
+	Sampler   map[string]any `json:"sampler"`
+	GroupID   string         `json:"group_id"`
+	Extra     map[string]any `json:"extra"`
+}
+
+func (x fishExtras) applyTo(req *webTTSRequest) {
+	maps.Copy(req.Prosody, x.Prosody)
+	req.Latency = cmp.Or(x.Latency, req.Latency)
+	req.GroupID = cmp.Or(x.GroupID, req.GroupID)
+	if x.Normalize != nil {
+		req.Normalize = x.Normalize
+	}
+	if x.Sampler != nil {
+		req.Sampler = x.Sampler
+	}
+	if x.Extra != nil {
+		req.Extra = x.Extra
+	}
+}
+
 // handleOpenAISpeech POST /v1/audio/speech:{model, input, voice, response_format, speed} → 音频。
-// voice 给 Fish 声音 ID 或声音名字(按名字搜第一个匹配);走网页会话,扣订阅套餐。
+// voice 给 Fish 声音 ID 或声音名字(按名字搜第一个匹配),多人对话用逗号隔开几个声音;走网页会话,扣订阅套餐。
+// Fish 自己的参数见 fishExtras。
 func handleOpenAISpeech(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Model          string  `json:"model"`
-		Input          string  `json:"input"`
-		Voice          string  `json:"voice"`
-		ResponseFormat string  `json:"response_format"`
-		Speed          float64 `json:"speed"`
+		Model          string     `json:"model"`
+		Input          string     `json:"input"`
+		Voice          string     `json:"voice"`
+		ResponseFormat string     `json:"response_format"`
+		Speed          float64    `json:"speed"`
+		Metadata       fishExtras `json:"metadata"`
+		fishExtras
 	}
 	if err := readJSON(r, &in); err != nil {
 		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
@@ -645,13 +675,22 @@ func handleOpenAISpeech(w http.ResponseWriter, r *http.Request) {
 	if in.Speed > 0 {
 		req.Prosody["speed"] = in.Speed
 	}
+	in.fishExtras.applyTo(&req)
+	in.Metadata.applyTo(&req)
 	if in.Voice != "" {
-		id, err := resolveVoice(r.Context(), in.Voice)
-		if err != nil {
-			fail(w, 400, err.Error())
-			return
+		var ids []any
+		for v := range strings.SplitSeq(in.Voice, ",") {
+			id, err := resolveVoice(r.Context(), strings.TrimSpace(v))
+			if err != nil {
+				fail(w, 400, err.Error())
+				return
+			}
+			ids = append(ids, id)
 		}
-		req.VoiceID = id
+		req.VoiceID = ids[0]
+		if len(ids) > 1 {
+			req.VoiceID = ids // 多说话人
+		}
 	}
 	serveWebTTS(w, r, &req)
 }
@@ -902,6 +941,7 @@ func main() {
 	mux.HandleFunc("GET /api/web/media/file", handleWebMediaFile)
 	mux.HandleFunc("GET /v1/models", handleOpenAIModels)
 	mux.HandleFunc("POST /v1/audio/speech", logged("openai", handleOpenAISpeech))
+	mux.HandleFunc("POST /v1/images/generations", logged("media", handleOpenAIImages))
 	keyRoutes(mux)
 	adminRoutes(mux)
 

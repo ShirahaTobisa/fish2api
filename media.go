@@ -20,21 +20,29 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"math"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
-	"time"
-
+	"slices"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -262,34 +270,39 @@ func pollMediaGroup(ctx context.Context, cred *WebCred, groupID string, maxWait 
 	}
 }
 
-// handleWebMediaFile GET /api/web/media/file?url=<R2地址>&sig=<签名>:
-// 代理下载结果文件。R2 的 URL 需要带账号 token 才能访问,浏览器直接 <img src=R2> 拿不到,
-// 所以由本服务代理;guard 里用 ?sig= 签名放行(15 分钟有效,不需要 Authorization 头)。
+// handleWebMediaFile GET /api/web/media/file?url=<R2地址>&sig=<签名>:代理下载结果文件;
+// guard 里用 ?sig= 签名放行(15 分钟有效,不需要 Authorization 头)。
 func handleWebMediaFile(w http.ResponseWriter, r *http.Request) {
-	rawURL := r.URL.Query().Get("url")
-	if rawURL == "" || !strings.HasPrefix(rawURL, "https://platform.r2.fish.audio/") {
-		fail(w, 400, "缺少合法的 url 参数(仅允许 platform.r2.fish.audio 的结果文件)")
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	defer cancel()
+	resp, status, err := fetchMediaFile(ctx, r, r.URL.Query().Get("url"))
+	if err != nil {
+		fail(w, status, err.Error())
 		return
+	}
+	streamBack(w, resp, cmp.Or(resp.Header.Get("Content-Type"), "application/octet-stream"))
+}
+
+// fetchMediaFile 带账号 token 取结果文件:R2 的 URL 要登录态才能下,浏览器 <img> 和 API 客户端都直接拿不到,
+// 所以由本服务代取。出错时返回该回给调用方的状态码。
+func fetchMediaFile(ctx context.Context, r *http.Request, rawURL string) (*http.Response, int, error) {
+	if !strings.HasPrefix(rawURL, "https://platform.r2.fish.audio/") {
+		return nil, 400, errors.New("缺少合法的 url 参数(仅允许 platform.r2.fish.audio 的结果文件)")
 	}
 	cred, err := resolveWebCred(r)
 	if err != nil {
-		fail(w, 401, err.Error())
-		return
+		return nil, 401, err
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
-	defer cancel()
 	dl, err := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
 	if err != nil {
-		fail(w, 502, err.Error())
-		return
+		return nil, 502, err
 	}
 	dl.Header.Set("Authorization", "Bearer "+cred.Token)
 	resp, err := http.DefaultClient.Do(dl)
 	if err != nil {
-		fail(w, 502, "下载失败: "+err.Error())
-		return
+		return nil, 502, fmt.Errorf("下载失败: %w", err)
 	}
-	streamBack(w, resp, cmp.Or(resp.Header.Get("Content-Type"), "application/octet-stream"))
+	return resp, 200, nil
 }
 
 // mediaError 上游非 200 的 JSON 错误体原样透传给调用方。
@@ -419,4 +432,167 @@ func signMediaURLs(body []byte) []byte {
 		return body
 	}
 	return out
+}
+
+// ---------------------------------------------------------------- OpenAI 图像接口(给 new-api 这类客户端用)
+
+// fishImageOpts 文生图的 Fish 参数,和 /api/web/media 的 params 同义。放顶层或 extra_fields 里都行:
+// 经 new-api 转发 /v1/images/generations 时只有 extra_fields 会原样保留。
+type fishImageOpts struct {
+	AspectRatio string         `json:"aspect_ratio"` // 不给就按 size 取最接近的比例
+	ImageSize   string         `json:"image_size"`   // 1K / 2K…;不给就看 quality(high / hd 用 2K)
+	Params      map[string]any `json:"params"`       // 其他计价档位参数,原样带上
+}
+
+// handleOpenAIImages POST /v1/images/generations:OpenAI 格式的文生图。内部走 /api/web/media 同一套
+// (计价 → 下单 → 等结果),再换成 OpenAI 的 {created, data:[{url} | {b64_json}]}。
+// model 是 Fish 的图像模型(fish- 前缀可带可不带);url 是本服务 15 分钟有效的签名下载链接。
+func handleOpenAIImages(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Model          string        `json:"model"`
+		Prompt         string        `json:"prompt"`
+		N              int           `json:"n"`
+		Size           string        `json:"size"`
+		Quality        string        `json:"quality"`
+		ResponseFormat string        `json:"response_format"`
+		ExtraFields    fishImageOpts `json:"extra_fields"`
+		fishImageOpts
+	}
+	if err := readJSON(r, &in); err != nil {
+		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
+		return
+	}
+	imageSize := "1K"
+	if in.Quality == "high" || in.Quality == "hd" {
+		imageSize = "2K"
+	}
+	params := map[string]any{
+		"aspect_ratio": cmp.Or(in.ExtraFields.AspectRatio, in.AspectRatio, aspectOf(in.Size)),
+		"image_size":   cmp.Or(in.ExtraFields.ImageSize, in.ImageSize, imageSize),
+	}
+	maps.Copy(params, in.Params)
+	maps.Copy(params, in.ExtraFields.Params)
+	body, _ := json.Marshal(map[string]any{
+		"model": strings.TrimPrefix(cmp.Or(in.Model, "nano-banana"), "fish-"), "variant": "t2i", "mode": "image",
+		"count": max(in.N, 1), "params": params, "prompt": in.Prompt, "wait": 240,
+	})
+	// 借 handleWebMediaGenerate 走完整流程(选账号、错误格式、请求记录都一样),结果录下来再换格式
+	rec := httptest.NewRecorder()
+	inner := r.Clone(r.Context())
+	inner.Body = io.NopCloser(bytes.NewReader(body))
+	handleWebMediaGenerate(rec, inner)
+	if rec.Code != 200 {
+		w.Header().Set("Content-Type", rec.Header().Get("Content-Type"))
+		w.WriteHeader(rec.Code)
+		_, _ = w.Write(rec.Body.Bytes())
+		return
+	}
+	var out struct {
+		Result struct {
+			Results []struct {
+				FailureReason string `json:"failureReason"`
+				MediaItem     *struct {
+					URL    string `json:"url"`
+					SigURL string `json:"sigUrl"`
+				} `json:"mediaItem"`
+			} `json:"results"`
+		} `json:"result"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	data, reason := []map[string]string{}, "等了 4 分钟还没出图"
+	for _, x := range out.Result.Results {
+		if x.MediaItem == nil {
+			reason = cmp.Or(x.FailureReason, reason)
+			continue
+		}
+		if in.ResponseFormat != "b64_json" {
+			data = append(data, map[string]string{"url": publicBase(r) + x.MediaItem.SigURL})
+			continue
+		}
+		resp, status, err := fetchMediaFile(r.Context(), r, x.MediaItem.URL)
+		if err != nil {
+			fail(w, status, err.Error())
+			return
+		}
+		b, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil || resp.StatusCode != 200 {
+			fail(w, 502, fmt.Sprintf("取图片失败: HTTP %d", resp.StatusCode))
+			return
+		}
+		data = append(data, map[string]string{"b64_json": base64.StdEncoding.EncodeToString(b)})
+	}
+	if len(data) == 0 {
+		fail(w, 502, "图片没生成出来: "+reason)
+		return
+	}
+	writeJSON(w, 200, map[string]any{"created": time.Now().Unix(), "data": data})
+}
+
+// aspectOf 把 OpenAI 的 size(如 1792x1024)换成最接近的常用比例;没给或认不出就 1:1。
+func aspectOf(size string) string {
+	ws, hs, ok := strings.Cut(size, "x")
+	sw, err1 := strconv.ParseFloat(ws, 64)
+	sh, err2 := strconv.ParseFloat(hs, 64)
+	if !ok || err1 != nil || err2 != nil || sw <= 0 || sh <= 0 {
+		return "1:1"
+	}
+	best, diff := "1:1", math.Inf(1)
+	for _, a := range []string{"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"} {
+		xs, ys, _ := strings.Cut(a, ":")
+		x, _ := strconv.ParseFloat(xs, 64)
+		y, _ := strconv.ParseFloat(ys, 64)
+		if d := math.Abs(math.Log(sw/sh) - math.Log(x/y)); d < diff {
+			best, diff = a, d
+		}
+	}
+	return best
+}
+
+// publicBase 调用方看到的本服务地址(经反代时取 X-Forwarded-Proto / X-Forwarded-Host),把下载链接写成完整网址。
+func publicBase(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return cmp.Or(r.Header.Get("X-Forwarded-Proto"), scheme) + "://" + cmp.Or(r.Header.Get("X-Forwarded-Host"), r.Host)
+}
+
+var imgModels struct {
+	sync.Mutex
+	ids []string
+	at  time.Time
+}
+
+// imageModels 账号能用的文生图模型,加 fish- 前缀(gpt-image-2 这类名字容易和 new-api 里别的渠道撞);
+// 缓存 10 分钟,查不到就不列。topaz/… 这类要先给原图的工具不列。
+func imageModels(r *http.Request) []string {
+	imgModels.Lock()
+	defer imgModels.Unlock()
+	if time.Since(imgModels.at) < 10*time.Minute {
+		return imgModels.ids
+	}
+	cred, err := resolveWebCred(r)
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	status, b, err := mediaModels(ctx, cred)
+	var list []struct {
+		ID        string   `json:"id"`
+		Available bool     `json:"available"`
+		Modes     []string `json:"modes"`
+	}
+	if err != nil || status != 200 || json.Unmarshal(b, &list) != nil {
+		return nil
+	}
+	ids := []string{}
+	for _, m := range list {
+		if m.Available && slices.Contains(m.Modes, "image") && !strings.Contains(m.ID, "/") {
+			ids = append(ids, "fish-"+m.ID)
+		}
+	}
+	imgModels.ids, imgModels.at = ids, time.Now()
+	return ids
 }

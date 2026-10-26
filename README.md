@@ -150,7 +150,8 @@ curl -X POST https://tts.example.com/api/web/tts \
 | PATCH | `/api/accounts/{name}` | 仅管理员 | 改续期方式 `{"provider":"github" / "google" / ""}` |
 | DELETE | `/api/accounts/{name}` | 仅管理员 | 删除账号 |
 | GET | `/v1/models` | 管理员/使用者 | OpenAI 格式的模型列表(new-api「获取模型」用) |
-| POST | `/v1/audio/speech` | 管理员/使用者 | OpenAI 兼容 TTS,走网页会话;new-api 里密钥填使用者 key 即可 |
+| POST | `/v1/audio/speech` | 管理员/使用者 | OpenAI 兼容 TTS,走网页会话;Fish 参数放 `metadata`(见「接入 new-api」) |
+| POST | `/v1/images/generations` | 管理员/使用者 | OpenAI 兼容文生图,内部走 `/api/web/media` 同步等结果 |
 
 **账号选择**:`/api/web/*` 带 `X-Account: <账号名>`(或 `?account=`)用指定账号;不带时在有效账号间轮询;
 再退到 `X-Fish-Web-Token` 头 / `FISH_WEB_TOKEN` 环境变量;都没有返回 401。
@@ -193,21 +194,40 @@ curl -X POST https://tts.example.com/api/web/tts \
 调用中 token 失效(上游 401)时,服务会自动重登一次并重放请求(需本地,且账号有密码或续期方式);
 重登不成就丢弃该 token、账号标记 `login_failed`,轮询不再选它,拿到新 token 后恢复。
 
-## 接入 new-api(当 OpenAI 的 TTS 模型用)
+## 接入 new-api(当 OpenAI 的语音和图像模型用)
 
-服务实现了 OpenAI 的 `POST /v1/audio/speech`,在 new-api 里加一个 **OpenAI 类型渠道**就能用:
+服务实现了 OpenAI 的 `POST /v1/audio/speech`(语音)和 `POST /v1/images/generations`(文生图),在 new-api 里加一个 **OpenAI 类型渠道**就能用:
 
-- Base URL 填这个服务的地址(域名,或同一台机器上的内网地址),密钥填这里的 `ACCESS_KEY`;
-- 模型:`drama-3`、`s2.1-pro`、`s2-pro`、`s1`;也认 `tts-1` / `tts-1-hd`(等于 drama-3)。点「获取模型」会自动填;
-- 记得在 new-api 里给这些模型设价格(TTS 按字符计费),没有倍率的模型 new-api 会拒绝;
-- 请求体就是 OpenAI 的格式:
+- Base URL 填这个服务的地址,密钥填面板「API Keys」页发的一把使用者 key;
+- 模型:语音 `drama-3`、`s2.1-pro`、`s2-pro`、`s1`,也认 `tts-1` / `tts-1-hd`(等于 drama-3);
+  图像是账号能用的文生图模型加 `fish-` 前缀(如 `fish-nano-banana`、`fish-gpt-image-2`,免得和别的渠道的同名模型撞)。点「获取模型」会自动填;
+- 记得在 new-api 里给这些模型设价格(或放进倍率为 0 的分组自己用),没有倍率的模型 new-api 会拒绝。
+
+**语音**,请求体就是 OpenAI 的格式:
 
 ```json
-{"model": "drama-3", "input": "你好 [停顿] 世界", "voice": "丁真", "response_format": "mp3", "speed": 1.0}
+{"model": "drama-3", "input": "你好 [停顿] 世界", "voice": "丁真", "response_format": "mp3", "speed": 1.0,
+ "metadata": {"prosody": {"pitch": 1.1, "volume": 3}, "latency": "balanced"}}
 ```
 
-`voice` 给 Fish 的 32 位声音 ID,或直接写声音名字(按名字搜,标题得包含这个名字,否则报错并提示最接近的那个,避免悄悄用错声音);
-`response_format` 支持 mp3 / wav / opus / pcm。酒馆这类客户端选 OpenAI 兼容的 TTS 提供商、地址填 new-api 即可。
+- `voice` 给 Fish 的 32 位声音 ID,或直接写声音名字(按名字搜,标题得包含这个名字,否则报错并提示最接近的那个,避免悄悄用错声音);
+  多人对话把几个声音用逗号隔开;`response_format` 支持 mp3 / wav / opus / pcm;
+- Fish 自己的参数和 `/api/web/tts` 同名:`prosody`(speed / pitch / volume / normalize_loudness,给几个改几个)、`latency`、`normalize`、`sampler`、`group_id`、`extra`。
+  直接调本服务时放顶层或 `metadata` 里都行;**经 new-api 转发时只有 `metadata` 会原样保留**(new-api 会丢掉它不认识的字段)。
+
+**图像**,OpenAI 格式,同步等出图(约 1 分钟):
+
+```json
+{"model": "fish-nano-banana", "prompt": "一只橘猫趴在窗台上晒太阳", "n": 1, "size": "1792x1024",
+ "response_format": "url", "extra_fields": {"image_size": "2K"}}
+```
+
+- `size` 换成最接近的比例(1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3),`quality` 为 high / hd 时用 2K;
+  也能直接给 Fish 的 `aspect_ratio`、`image_size`、`params`,经 new-api 时放 `extra_fields` 里;
+- 返回 `{"created", "data": [{"url"}]}`,url 是本服务 15 分钟有效的签名下载链接;`response_format: "b64_json"` 时直接给图片 base64;
+- 视频要 plus 套餐,还没接。
+
+酒馆这类客户端选 OpenAI 兼容的 TTS / 生图提供商、地址填 new-api 即可。
 
 ## 配置(环境变量)
 

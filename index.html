@@ -385,7 +385,7 @@ tr.click{cursor:pointer}
     <h3>脚本调用</h3>
     <pre id="curlDemo"></pre>
     <p class="hint" style="margin:8px 0 0">文本里可用网页同款标签:<code>[停顿]</code> <code>[笑着说]</code> <code>[叹气]</code> <code>&lt;whisper&gt;悄悄话&lt;/whisper&gt;</code> <code>&lt;strong&gt;重读&lt;/strong&gt;</code>。不带 <code>X-Account</code> 时在可用账号间轮询。</p>
-    <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字),可以直接作为 OpenAI 类型渠道接进 new-api,密钥填一把「API Keys」页发的 key。</p>
+    <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字,多人用逗号隔开)和 <code>POST /v1/images/generations</code>(model 填 fish-nano-banana 等),可以直接作为 OpenAI 类型渠道接进 new-api,密钥填一把「API Keys」页发的 key。音调、音量这些 Fish 参数放 <code>metadata</code> 里才能穿过 new-api。</p>
     <p class="hint" style="margin:8px 0 0">缓存、冷却、人机验证这些在「设置」页改,保存就生效;监听地址、端口、<code>ACCESS_KEY</code> 只能改环境变量后重启。</p>
   </div>
 </div>
