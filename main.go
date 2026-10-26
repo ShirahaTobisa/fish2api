@@ -58,13 +58,14 @@ func fail(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"detail": msg, "error": map[string]any{"message": msg, "type": "fish_tts_api"}})
 }
 
-// guard 设了 ACCESS_KEY 时 /api/* 和 /v1/* 必须带对密钥;/ 和 /health 不拦,面板靠 /health 得知要不要密钥。
+// guard 设了 ACCESS_KEY 时 /api/*、/v1/*、/compat/* 必须带对密钥;/、/health 和公开声音库 /model 不拦,
+// 面板靠 /health 得知要不要密钥。
 // 两级钥匙:ACCESS_KEY=管理员(全部接口);面板「API Keys」里发的=使用者(只能调合成与查询,见 apikeys.go 的 userAllowed)。
 // 支持三种传法:Authorization: Bearer <key> / X-Api-Key: <key> / ?key=<key>(OpenAI 客户端通吃)。
 // 认出的密钥名放进请求上下文,请求记录里按它统计(没设 ACCESS_KEY 时不拦,但带了 key 照样认名字)。
 func guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !(strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/")) {
+		if !(strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/") || strings.HasPrefix(r.URL.Path, "/compat/")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -99,6 +100,24 @@ func guard(next http.Handler) http.Handler {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="fish2api"`)
 			fail(w, 401, "需要访问密钥:Authorization: Bearer <key>(管理员用 ACCESS_KEY,使用者用 API key)")
 		}
+	})
+}
+
+// cors 让浏览器里的插件能直接跨域调用。鉴权靠请求头里的 key、不用 cookie,别的网站拿不到 key,
+// 所以放开任意来源;预检(OPTIONS)不带 key,直接回 204。
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", "*")
+		h.Set("Access-Control-Expose-Headers", "X-Task-Id, X-Cache")
+		if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", cmp.Or(r.Header.Get("Access-Control-Request-Headers"), "Authorization, Content-Type"))
+			h.Set("Access-Control-Max-Age", "86400")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -621,15 +640,17 @@ func handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"object": "list", "data": data})
 }
 
-// fishExtras Fish 自己的合成参数,和 /api/web/tts 同名同义。OpenAI 接口里放顶层或 metadata 里都行:
-// 经 new-api 转发 /v1/audio/speech 时只有 metadata 会原样保留,其他不认识的字段会被丢掉。
+// fishExtras Fish 自己的合成参数,和 /api/web/tts 同名同义。OpenAI 接口里放顶层、metadata、
+// 或 Fish 官方兼容接口的 provider.options["fish-audio"] 里都行;经 new-api 转发时只有 metadata 会原样保留。
+// temperature / top_p / chunk_length 这类官方 API 的参数网页这条路没有,忽略。
 type fishExtras struct {
-	Prosody   map[string]any `json:"prosody"` // speed / pitch / volume / normalize_loudness,给几个改几个
-	Latency   string         `json:"latency"`
-	Normalize *bool          `json:"normalize"`
-	Sampler   map[string]any `json:"sampler"`
-	GroupID   string         `json:"group_id"`
-	Extra     map[string]any `json:"extra"`
+	Prosody    map[string]any    `json:"prosody"` // speed / pitch / volume / normalize_loudness,给几个改几个
+	Latency    string            `json:"latency"`
+	Normalize  *bool             `json:"normalize"`
+	Sampler    map[string]any    `json:"sampler"`
+	GroupID    string            `json:"group_id"`
+	Extra      map[string]any    `json:"extra"`
+	References []json.RawMessage `json:"references"` // 参考音频克隆:网页这条路还没接,收到就报错
 }
 
 func (x fishExtras) applyTo(req *webTTSRequest) {
@@ -647,9 +668,11 @@ func (x fishExtras) applyTo(req *webTTSRequest) {
 	}
 }
 
-// handleOpenAISpeech POST /v1/audio/speech:{model, input, voice, response_format, speed} → 音频。
-// voice 给 Fish 声音 ID 或声音名字(按名字搜第一个匹配),多人对话用逗号隔开几个声音;走网页会话,扣订阅套餐。
-// Fish 自己的参数见 fishExtras。
+// handleOpenAISpeech POST /v1/audio/speech(OpenAI)和 /compat/v1/audio/speech(Fish 官方兼容接口同款,
+// 插件把地址从 api.fish.audio 换过来就能用):{model, input, voice, response_format, speed} → 音频。
+// model 认 fish-audio/s2.1-pro 这种官方写法(-free 档换成网页的同名模型);voice 给 Fish 声音 ID 或声音名字
+// (按名字搜第一个匹配),多人对话用逗号隔开,留空或 default 用账号默认声音;走网页会话,扣订阅套餐。
+// Fish 自己的参数见 fishExtras;优先级和官方一样:provider.options > metadata > 顶层。
 func handleOpenAISpeech(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Model          string     `json:"model"`
@@ -658,16 +681,28 @@ func handleOpenAISpeech(w http.ResponseWriter, r *http.Request) {
 		ResponseFormat string     `json:"response_format"`
 		Speed          float64    `json:"speed"`
 		Metadata       fishExtras `json:"metadata"`
+		Provider       struct {
+			Options struct {
+				Fish fishExtras `json:"fish-audio"`
+			} `json:"options"`
+		} `json:"provider"`
 		fishExtras
 	}
 	if err := readJSON(r, &in); err != nil {
 		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
 		return
 	}
+	if len(in.References)+len(in.Metadata.References)+len(in.Provider.Options.Fish.References) > 0 {
+		fail(w, 400, "暂不支持参考音频克隆(references):fish2api 走网页额度,网页这条路还没接参考音频")
+		return
+	}
 	req := webDefaults()
 	req.Text = in.Input
-	if backend := strings.TrimPrefix(in.Model, "fish-"); backend != "" {
+	if backend := strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(in.Model, "fish-audio/"), "fish-"), "-free"); backend != "" {
 		req.Backend = cmp.Or(backendAlias[backend], backend)
+	}
+	if strings.HasPrefix(r.URL.Path, "/compat/") {
+		req.Format = "pcm" // 和官方兼容接口一样,没写 response_format 时给 pcm
 	}
 	if audioMIME[in.ResponseFormat] != "" {
 		req.Format = in.ResponseFormat
@@ -677,7 +712,8 @@ func handleOpenAISpeech(w http.ResponseWriter, r *http.Request) {
 	}
 	in.fishExtras.applyTo(&req)
 	in.Metadata.applyTo(&req)
-	if in.Voice != "" {
+	in.Provider.Options.Fish.applyTo(&req)
+	if in.Voice != "" && in.Voice != "default" {
 		var ids []any
 		for v := range strings.SplitSeq(in.Voice, ",") {
 			id, err := resolveVoice(r.Context(), strings.TrimSpace(v))
@@ -941,6 +977,9 @@ func main() {
 	mux.HandleFunc("GET /api/web/media/file", handleWebMediaFile)
 	mux.HandleFunc("GET /v1/models", handleOpenAIModels)
 	mux.HandleFunc("POST /v1/audio/speech", logged("openai", handleOpenAISpeech))
+	mux.HandleFunc("POST /compat/v1/audio/speech", logged("openai", handleOpenAISpeech)) // Fish 官方兼容接口同款路径
+	mux.HandleFunc("GET /model", handleVoices)                                           // Fish 官方声音库同款路径(公开,不要密钥)
+	mux.HandleFunc("GET /model/{id}", handleVoiceDetail)
 	mux.HandleFunc("POST /v1/images/generations", logged("media", handleOpenAIImages))
 	keyRoutes(mux)
 	adminRoutes(mux)
@@ -961,5 +1000,5 @@ func main() {
 	addr := listenAddr()
 	path, _ := filepath.Abs(store.path)
 	logf("Fish Audio TTS API(Go)监听 http://%s,账号库 %s", addr, path)
-	log.Fatal(http.ListenAndServe(addr, guard(mux)))
+	log.Fatal(http.ListenAndServe(addr, cors(guard(mux))))
 }

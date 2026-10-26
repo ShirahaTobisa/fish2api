@@ -76,7 +76,7 @@ func keyOf(key string) (string, int) {
 
 // userAllowed 使用者 key 能调的接口:合成(语音/图像/视频)、查声音和模型、查余额和任务;其余都是管理接口。
 func userAllowed(path string) bool {
-	if strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/api/voices") || strings.HasPrefix(path, "/api/web/") {
+	if strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/compat/") || strings.HasPrefix(path, "/api/voices") || strings.HasPrefix(path, "/api/web/") {
 		return true
 	}
 	return path == "/api/tts" || path == "/api/models"

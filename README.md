@@ -10,6 +10,7 @@ fish2api 是一个用 Docker 部署的 Fish Audio 网关。它把 [fish.audio](h
 - 两级密钥：`ACCESS_KEY` 是管理员密钥，什么都能做；面板发的使用者 key（`sk-fish-…`）只能合成和查询，有名字、能停用
 - 网页合成：`POST /api/web/tts`，扣订阅套餐 credits；网页要求的 reCAPTCHA Enterprise 由容器里的无头 Chromium 自动取，不用人管
 - OpenAI 兼容：`/v1/audio/speech`（语音）、`/v1/images/generations`（文生图）、`/v1/models`
+- Fish 官方接口同款：`/compat/v1/audio/speech`、`/model`，原来直连 `api.fish.audio` 的插件换个地址和 key 就能用；允许浏览器跨域调用
 - 图像/视频：`POST /api/web/media`，封装网页「图像与视频」工具；视频要 plus 套餐
 - 官方 API 模式：`POST /api/tts`，用 Fish 官方 API key，扣 API 积分
 - 多账号：可用账号间轮询；被上游限流或报错的账号冷却一段时间；每 10 分钟向上游验证 token，失效的提前踢掉；GitHub / Google 登录的账号能自动续期
@@ -118,9 +119,11 @@ curl -X POST https://tts.example.com/api/web/tts \
 | 密钥 | 能做什么 |
 | --- | --- |
 | `ACCESS_KEY`（管理员） | 所有接口，登录面板也用它 |
-| 使用者 key（`sk-fish-…`） | 只能调合成和查询：`/v1/*`、`/api/tts`、`/api/models`、`/api/voices*`、`/api/web/*`（含图像/视频）；碰账号、key、设置、记录这些管理接口返回 `403`；停用的 key 返回 `401` |
+| 使用者 key（`sk-fish-…`） | 只能调合成和查询：`/v1/*`、`/compat/*`、`/api/tts`、`/api/models`、`/api/voices*`、`/api/web/*`（含图像/视频）；碰账号、key、设置、记录这些管理接口返回 `403`；停用的 key 返回 `401` |
 
-没设 `ACCESS_KEY` 时不拦任何请求（只适合内网），带了 key 的请求照样按 key 名记进请求记录。
+`/`、`/health` 和公开声音库 `/model` 不要密钥。没设 `ACCESS_KEY` 时不拦任何请求（只适合内网），带了 key 的请求照样按 key 名记进请求记录。
+
+浏览器里的插件可以直接跨域调用：所有接口都带 `Access-Control-Allow-Origin: *`，预检请求直接放行。鉴权靠请求头里的 key，不用 cookie，所以别的网站拿不到你的 key 也调不了。
 
 ## 语音合成
 
@@ -189,9 +192,42 @@ POST /v1/audio/speech
 | `voice` | Fish 的 32 位声音 ID，或直接写声音名字：按名字搜，标题里得包含这个名字，否则报错并提示最接近的那个，免得悄悄用错声音扣额度。多人对话用逗号隔开几个声音。 |
 | `response_format` | `mp3`（默认）、`wav`、`opus`、`pcm`。 |
 | `speed` | 语速。 |
-| `metadata` | Fish 自己的参数，和网页合成同名：`prosody`、`latency`、`normalize`、`sampler`、`group_id`、`extra`。直接调本服务时放顶层也行；**经 new-api 转发时只有 `metadata` 会原样保留**。 |
+| `metadata` | Fish 自己的参数，和网页合成同名：`prosody`、`latency`、`normalize`、`sampler`、`group_id`、`extra`。直接调本服务时放顶层、或像官方那样放 `provider.options["fish-audio"]` 也行；**经 new-api 转发时只有 `metadata` 会原样保留**。 |
 
 OpenAI 的 `instructions` 字段 Fish 没有对应功能，会被忽略；要控制语气请在文字里写标签。
+
+### Fish 官方兼容接口（插件用）
+
+```text
+POST /compat/v1/audio/speech
+```
+
+和 Fish 官方的 `https://api.fish.audio/compat/v1/audio/speech` 同一个路径、同一种请求体。原来直连官方的插件，把地址 `https://api.fish.audio` 换成本服务的地址、key 换成「API Keys」里发的使用者 key，就改走网页额度：
+
+```json
+{
+  "model": "fish-audio/s2.1-pro",
+  "input": "[开心] 你好呀",
+  "voice": "dd43b30d04d9446a94ebe41f301229b5",
+  "response_format": "mp3",
+  "provider": {"options": {"fish-audio": {"prosody": {"volume": 2}, "latency": "balanced"}}}
+}
+```
+
+- `model` 认官方写法 `fish-audio/…`；官方的免费档（如 `fish-audio/s2.1-pro-free`）在网页上没有，换成同名的网页模型（`s2.1-pro`），扣订阅额度；也认 `drama-3` 这类网页模型名。
+- `voice` 是 Fish 声音 ID，留空或写 `default` 用账号默认声音；也能写声音名字、用逗号写多个，规则同上。
+- `response_format` 不写时和官方一样给 `pcm`。
+- Fish 参数放 `provider.options["fish-audio"]`，照办的有 `prosody`、`latency`、`normalize`（同网页合成）；优先级和官方一样：`provider.options` 高于 `metadata`，高于顶层。
+- **参考音频克隆（`references`）暂不支持**，收到会回 `400`；官方 API 的 `temperature`、`top_p`、`chunk_length`、`sample_rate` 和 `X-Fish-*` 请求头网页这条路没有，忽略。
+
+声音库也是官方同款路径，插件搜声音、查声音走同一个地址就行（公开，不要密钥）：
+
+```text
+GET /model?title=名字&language=zh&page_size=20
+GET /model/{声音ID}
+```
+
+查「我自己的声音」（`self=true`）、建声音、删声音这些要官方 API key 的操作本服务不支持；插件要用这几项，还得填官方地址和官方 key。
 
 ### 官方 API 模式（扣 API 积分）
 
