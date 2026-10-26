@@ -488,7 +488,8 @@ func handleOpenAIImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var out struct {
-		Result struct {
+		GroupID string `json:"group_id"`
+		Result  struct {
 			Results []struct {
 				FailureReason string `json:"failureReason"`
 				MediaItem     *struct {
@@ -499,7 +500,9 @@ func handleOpenAIImages(w http.ResponseWriter, r *http.Request) {
 		} `json:"result"`
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
-	data, reason := []map[string]string{}, "等了 4 分钟还没出图"
+	// 走到这里已经下单扣了额度:之后出错只回 400(生成失败)或 504(超时、取不到图),
+	// new-api 默认对这两个不重试,免得它再下一单、重复扣费
+	data, reason := []map[string]string{}, ""
 	for _, x := range out.Result.Results {
 		if x.MediaItem == nil {
 			reason = cmp.Or(x.FailureReason, reason)
@@ -509,24 +512,27 @@ func handleOpenAIImages(w http.ResponseWriter, r *http.Request) {
 			data = append(data, map[string]string{"url": publicBase(r) + x.MediaItem.SigURL})
 			continue
 		}
-		resp, status, err := fetchMediaFile(r.Context(), r, x.MediaItem.URL)
+		resp, _, err := fetchMediaFile(r.Context(), r, x.MediaItem.URL)
 		if err != nil {
-			fail(w, status, err.Error())
+			fail(w, 504, "图片已生成,但取图失败: "+err.Error())
 			return
 		}
 		b, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil || resp.StatusCode != 200 {
-			fail(w, 502, fmt.Sprintf("取图片失败: HTTP %d", resp.StatusCode))
+			fail(w, 504, fmt.Sprintf("图片已生成,但取图失败: HTTP %d", resp.StatusCode))
 			return
 		}
 		data = append(data, map[string]string{"b64_json": base64.StdEncoding.EncodeToString(b)})
 	}
-	if len(data) == 0 {
-		fail(w, 502, "图片没生成出来: "+reason)
-		return
+	switch {
+	case len(data) > 0:
+		writeJSON(w, 200, map[string]any{"created": time.Now().Unix(), "data": data})
+	case reason != "":
+		fail(w, 400, "图片没生成出来: "+reason)
+	default:
+		fail(w, 504, "等了 4 分钟还没出图,任务号 "+out.GroupID+",可以用 GET /api/web/media/任务号 再查")
 	}
-	writeJSON(w, 200, map[string]any{"created": time.Now().Unix(), "data": data})
 }
 
 // aspectOf 把 OpenAI 的 size(如 1792x1024)换成最接近的常用比例;没给或认不出就 1:1。
