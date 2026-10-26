@@ -1,0 +1,22 @@
+# Dockge / docker compose 部署。同目录建 .env,写一行:ACCESS_KEY=一串随机字符
+services:
+  fish2api:
+    build: .
+    image: fish2api:latest
+    container_name: fish2api
+    restart: unless-stopped
+    shm_size: "256mb"         # chromium 无头渲染用的共享内存,默认 64MB 偏小
+    ports:
+      - "127.0.0.1:8765:8765"   # 只给本机的 Caddy 反代用
+    environment:
+      ACCESS_KEY: ${ACCESS_KEY:?在 .env 里设置 ACCESS_KEY}
+      FISH_API_KEY: ${FISH_API_KEY:-}
+    volumes:
+      - ./data:/data            # accounts.json(服务器上只有 token,没有密码)
+    networks:
+      - default
+      - caddy                   # 加入现有 Caddy 容器所在网络,供它按容器名反代
+networks:
+  caddy:
+    external: true
+    name: snowluma-docker_default

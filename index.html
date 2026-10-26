@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fish2api 面板</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#f5f6f8;--card:#fff;--line:#e5e7eb;--txt:#1f2329;--sub:#6b7280;--brand:#2b6de9;--brand-bg:#e8f0fe;
+  --ok:#16a34a;--ok-bg:#dcfce7;--warn:#d97706;--warn-bg:#fef3c7;--err:#dc2626;--err-bg:#fee2e2;--dim-bg:#f1f3f5;
+  --hover:#f7f8fa;--input:#fff;--side:#fff;--shadow:0 1px 2px rgba(16,24,40,.04)
+}
+[data-theme=dark]{
+  --bg:#121417;--card:#1b1e24;--line:#2b303a;--txt:#e6e8eb;--sub:#98a2b3;--brand:#6ea0ff;--brand-bg:#1e2a44;
+  --ok:#4ade80;--ok-bg:#14301f;--warn:#fbbf24;--warn-bg:#3a2b0a;--err:#f87171;--err-bg:#3b1515;--dim-bg:#262b33;
+  --hover:#20242b;--input:#15181d;--side:#16191e;--shadow:none
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;display:flex;min-height:100vh}
+a{color:var(--brand)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:8px;padding:5px 12px;line-height:1.5}
+button:hover{border-color:var(--brand);color:var(--brand)}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+button.primary:hover{opacity:.9;color:#fff}
+button.danger:hover{border-color:var(--err);color:var(--err)}
+button.sm{padding:3px 9px;font-size:12.5px;border-radius:6px}
+select.sm{width:auto;display:inline-block;padding:3px 6px;font-size:12.5px;border-radius:6px;vertical-align:middle}
+button:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;color:var(--txt);background:var(--input)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-bg)}
+input[type=range]{padding:0;border:none;box-shadow:none;background:none}
+input[type=checkbox]{width:auto}
+textarea{min-height:170px;resize:vertical}
+label{display:block;font-size:12.5px;color:var(--sub);margin:12px 0 4px}
+/* 侧边栏 */
+.side{width:216px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.logo{display:flex;align-items:center;gap:10px;padding:18px 18px 10px;font-weight:700;font-size:15px;line-height:1.3;white-space:nowrap}
+.logo .ico{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:15px;flex:none}
+.logo small{display:block;font-weight:400;color:var(--sub);font-size:11.5px}
+.grp{font-size:11px;color:var(--sub);letter-spacing:.06em;padding:14px 20px 4px}
+.nav{border:none;background:none;width:calc(100% - 16px);margin:1px 8px;text-align:left;padding:8px 12px;border-radius:8px;color:var(--txt);display:flex;align-items:center;gap:10px}
+.nav:hover{background:var(--hover);color:var(--txt)}
+.nav.active{background:var(--brand-bg);color:var(--brand);font-weight:600}
+.nav .i{width:18px;text-align:center;font-size:14px;opacity:.85}
+.side .foot{margin-top:auto;padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;font-size:12px;color:var(--sub)}
+/* 主区 */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:56px;display:flex;align-items:center;gap:14px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+.top h1{font-size:16px;margin:0;font-weight:600}
+.top .st{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--sub);flex-wrap:wrap;justify-content:flex-end}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+main{padding:22px 24px 40px;max-width:1240px;width:100%}
+.view{display:none}.view.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 12px;font-size:14.5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card h3 .sp{flex:1}
+.card p{margin:0 0 8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat .l{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--sub);letter-spacing:.04em}
+.stat .l .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;color:#fff}
+.stat .n{font-size:22px;font-weight:700;margin-top:6px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat .s{font-size:12px;color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table{border-collapse:collapse;width:100%}
+td,th{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;font-size:13px;vertical-align:middle}
+th{color:var(--sub);font-weight:500;white-space:nowrap;background:var(--hover)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--hover)}
+.kvt td{padding:6px 10px;font-size:13px}
+.tag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap}
+.t-ok{background:var(--ok-bg);color:var(--ok)}.t-warn{background:var(--warn-bg);color:var(--warn)}
+.t-err{background:var(--err-bg);color:var(--err)}.t-dim{background:var(--dim-bg);color:var(--sub)}
+.hint{color:var(--sub);font-size:12.5px}
+.err-box{background:var(--err-bg);border:1px solid var(--err);color:var(--err);border-radius:8px;padding:10px 14px;margin-top:12px;white-space:pre-wrap;display:none}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:140px}
+.grid2{display:grid;grid-template-columns:5fr 6fr;gap:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer;color:var(--sub)}
+.chip:hover,.chip.on{border-color:var(--brand);color:var(--brand);background:var(--brand-bg)}
+.vlist{max-height:330px;overflow-y:auto;margin-top:8px;border:1px solid var(--line);border-radius:10px}
+.voice{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.voice:last-child{border-bottom:none}
+.voice:hover{background:var(--hover)}
+.voice.sel{background:var(--brand-bg)}
+.voice .vb{flex:1;min-width:0}
+.voice .vt{font-weight:600;font-size:13px}
+.voice .vm{color:var(--sub);font-size:11.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+audio{width:100%;margin-top:10px;height:36px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:22px 24px;max-width:480px;width:92%;background:var(--card);color:var(--txt)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog h3{margin:0 0 6px}
+.dlg-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+pre{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.55;margin:0}
+code{background:var(--dim-bg);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hist{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.hist:last-child{border-bottom:none}
+.hist .hb{flex:1;min-width:0}
+.hist .ht{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist .hm{color:var(--sub);font-size:12px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:50;max-width:90vw}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+@media(max-width:900px){
+  body{flex-direction:column}
+  .side{width:100%;height:auto;flex-direction:row;align-items:center;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:0 6px;z-index:6}
+  .logo{padding:10px}.logo small,.grp,.side .foot .ver{display:none}
+  .nav{width:auto;margin:0 2px;padding:6px 10px;white-space:nowrap}
+  .side .foot{margin:0 0 0 auto;border:none;padding:6px}
+  .top{position:static;padding:0 14px;height:48px}.top .st span:not(:first-child){display:none}
+  main{padding:14px}
+}
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="logo"><span class="ico">🎙</span><div>fish2api<small>本地 API 面板</small></div></div>
+  <div class="grp">面板</div>
+  <button class="nav" data-v="dash"><span class="i">▦</span>仪表盘</button>
+  <button class="nav" data-v="tts"><span class="i">♪</span>语音合成</button>
+  <button class="nav" data-v="media"><span class="i">▶</span>图像/视频</button>
+  <button class="nav" data-v="history"><span class="i">◷</span>生成历史</button>
+  <button class="nav" data-v="keys"><span class="i">⚿</span>API Keys</button>
+  <div class="grp">其他</div>
+  <button class="nav" data-v="help"><span class="i">?</span>使用说明</button>
+  <div class="foot"><button class="sm" id="themeBtn" title="切换深浅色">🌙</button><span class="ver">Go 版</span></div>
+</aside>
+<div class="main">
+<header class="top"><h1 id="title">仪表盘</h1><div class="st" id="pill">…</div></header>
+<main>
+
+<!-- ================= 仪表盘 ================= -->
+<div class="view" id="v-dash">
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <h3>账号 <span class="sp"></span><button class="sm" id="refreshBal">刷新余额</button><button class="primary sm" id="addOpen">+ 添加账号</button></h3>
+    <div style="overflow-x:auto">
+      <table id="accTable">
+        <thead><tr><th>名称</th><th>邮箱</th><th>状态</th><th>token</th><th>套餐余额</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" id="accHint" style="margin:10px 0 0"></p>
+  </div>
+</div>
+
+<!-- ================= 语音合成 ================= -->
+<div class="view" id="v-tts">
+<div class="grid2">
+  <div class="card">
+    <label>账号(消耗其订阅套餐 credits)</label>
+    <select id="account"></select>
+    <label>声音</label>
+    <div class="row">
+      <div style="flex:3"><input id="voiceQ" placeholder="搜索名称,如:宣传片 / narration / 温柔"></div>
+      <div style="flex:1;min-width:110px"><select id="voiceLang"><option value="">全部语言</option><option value="zh">中文</option><option value="en">英语</option><option value="ja">日语</option><option value="ko">韩语</option></select></div>
+    </div>
+    <div class="chips" id="recentVoices"></div>
+    <div class="vlist" id="voiceList"></div>
+    <label>模型(backend)</label>
+    <select id="backend">
+      <option value="drama-3">Fish Audio Drama 3(网页默认,表演)</option>
+      <option value="s2.1-pro">S2.1 Pro</option>
+      <option value="s2-pro">S2 Pro</option>
+      <option value="s1">S1</option>
+    </select>
+    <div class="row">
+      <div><label>语速 <span id="speedV" class="hint">1.00x</span></label><input type="range" id="speed" min="0.5" max="2" step="0.05" value="1"></div>
+      <div><label>音量 <span id="volV" class="hint">0 dB</span></label><input type="range" id="vol" min="-10" max="10" step="1" value="0"></div>
+      <div style="max-width:120px"><label>格式</label><select id="fmt"><option>mp3</option><option>wav</option><option>opus</option></select></div>
+    </div>
+  </div>
+  <div class="card">
+    <label>文本 <span class="hint">· 点标签插入光标处;选中文字再点可整段包进标签</span></label>
+    <div class="chips" id="tagChips"></div>
+    <textarea id="text" placeholder="输入要合成的文本…">你好,这是通过本地 API 调用 Fish Audio 生成的语音。[停顿] 测试成功。</textarea>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+      <button class="primary" id="genBtn" style="padding:8px 24px">▶ 生成语音</button>
+      <span class="hint" id="genState"></span>
+    </div>
+    <div class="err-box" id="genErr"></div>
+    <div id="result" style="display:none">
+      <audio id="player" controls></audio>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <a id="dl" class="tag t-dim" style="text-decoration:none" download>⬇ 下载</a><span class="hint" id="meta"></span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ================= 生成历史 ================= -->
+<div class="view" id="v-history">
+  <div class="card">
+    <h3>生成历史 <span class="hint" style="font-weight:400">保存在本浏览器里,最多 100 条</span><span class="sp"></span><button class="sm danger" id="clearHist">清空</button></h3>
+    <div id="histList"></div>
+  </div>
+</div>
+
+<!-- ================= 图像/视频 ================= -->
+<div class="view" id="v-media">
+  <div class="grid2">
+    <div class="card">
+      <label>账号(扣其套餐 credits;视频需要 plus,图像 free 每日 3 张)</label>
+      <select id="mAccount"></select>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:2"><label>模型</label><select id="mModel"></select></div>
+        <div style="flex:1"><label>数量</label><input id="mCount" type="number" min="1" max="4" value="1"></div>
+      </div>
+      <label>参数(与上游计价档位精确匹配;aspect_ratio/image_size/resolution/duration)</label>
+      <div class="row">
+        <div><input id="mAR" placeholder="aspect_ratio,如 1:1 / 16:9" value="1:1"></div>
+        <div><input id="mRes" placeholder="resolution / image_size,如 1K / 720P"></div>
+        <div style="max-width:110px"><input id="mDur" placeholder="duration 秒"></div>
+      </div>
+      <label>等待模式</label>
+      <select id="mWait"><option value="240">同步等结果(最多 4 分钟,推荐)</option><option value="0">异步(只拿任务号)</option></select>
+      <div class="hint" id="mEnt" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <label>Prompt</label>
+      <textarea id="mPrompt" style="min-height:110px" placeholder="描述你要生成的画面…"></textarea>
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+        <button class="primary" id="mGen" onclick="mediaGen()" style="padding:9px 24px">▶ 生成</button>
+        <span class="hint" id="mState"></span>
+      </div>
+      <div class="err-box" id="mErr"></div>
+      <div id="mOut" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= API Keys ================= -->
+<div class="view" id="v-keys">
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <h3 style="margin:0;font-size:16px">使用者 API Keys</h3>
+      <span style="flex:1"></span>
+      <button class="primary" onclick="keyAdd()">+ 发放新 Key</button>
+      <button onclick="keysLoad()">刷新</button>
+    </div>
+    <p class="hint" style="margin:0 0 10px">使用者 key 只能调合成与图像/视频等只读接口,碰不了账号管理;随时可吊销。调用姿势:<code>Authorization: Bearer &lt;key&gt;</code> / <code>X-Api-Key: &lt;key&gt;</code> / <code>?key=</code></p>
+    <table id="keyTable"><thead><tr><th>Key</th><th style="width:160px">操作</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- ================= 使用说明 ================= -->
+<div class="view" id="v-help">
+  <div class="card">
+    <h3>计费口径</h3>
+    <p>本面板的「语音合成」走网页会话(<code>POST /api/web/tts</code>),消耗账号的<b>订阅套餐 credits</b>;<code>POST /api/tts</code> 走官方 API key,消耗 <b>API 积分</b>。两者是独立的钱包,余额在仪表盘看。</p>
+  </div>
+  <div class="card">
+    <h3>token 怎么来</h3>
+    <p><b>最稳的办法</b>:仪表盘「更新 token」里有个书签按钮,拖到书签栏;用你平时的浏览器登录 fish.audio,在它页面上点一下书签,token 就自动发过来。本地面板、服务器面板各生成各的书签。</p>
+    <p><b>自动续期</b>:token 是不透明的会话串,没有过期时间,程序每 10 分钟向上游验证一次,失效了就按账号的「续期」方式重新登录:GitHub / Google 登录不经过 reCAPTCHA,能在后台无头完成(每个账号有自己的浏览器配置目录 <code>browser-profile/账号名</code>,第一次要你在「弹窗登录」里用它登一次);邮箱密码自动填表要过 reCAPTCHA,基本会被拦。设置了 <code>PUSH_URL</code> / <code>PUSH_KEY</code> 时拿到 token 会推送到服务器。</p>
+    <p><b>手动</b>:fish.audio 页面按 F12 → Application → Local Storage → 复制 <code>token</code> 的值,到「更新 token」粘贴。</p>
+  </div>
+  <div class="card">
+    <h3>脚本调用</h3>
+    <pre id="curlDemo"></pre>
+    <p class="hint" style="margin:8px 0 0">文本里可用网页同款标签:<code>[停顿]</code> <code>[笑着说]</code> <code>[叹气]</code> <code>&lt;whisper&gt;悄悄话&lt;/whisper&gt;</code> <code>&lt;strong&gt;重读&lt;/strong&gt;</code>。不带 <code>X-Account</code> 时在可用账号间轮询。</p>
+    <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字),可以直接作为 OpenAI 类型渠道接进 new-api,密钥就是 ACCESS_KEY。</p>
+  </div>
+  <div class="card">
+    <h3>环境变量</h3>
+    <table class="kvt">
+      <tr><td><code>HOST</code> / <code>PORT</code></td><td>监听地址,默认 127.0.0.1:8765(Docker 里 HOST=0.0.0.0)</td></tr>
+      <tr><td><code>ACCESS_KEY</code></td><td>设了之后所有 /api/* 都要带 <code>Authorization: Bearer &lt;key&gt;</code>,公网部署必设</td></tr>
+      <tr><td><code>PUSH_URL</code> / <code>PUSH_KEY</code></td><td>本地实例把登录拿到的 token 推送到这个服务器(填它的地址和 ACCESS_KEY)</td></tr>
+      <tr><td><code>FISH_API_KEY</code></td><td>API key 模式(/api/tts)用</td></tr>
+      <tr><td><code>TOKEN_VERIFY_INTERVAL_SECONDS</code></td><td>多久向上游验证一次 token 还有效,默认 600</td></tr>
+      <tr><td><code>LOGIN_HEADLESS</code></td><td>1=自动登录用无头浏览器(更易被 reCAPTCHA 拒);交互登录始终有头</td></tr>
+      <tr><td><code>ACCOUNTS_FILE</code></td><td>账号库路径,默认 accounts.json(本地含明文密码,注意保管)</td></tr>
+    </table>
+  </div>
+</div>
+</main>
+</div>
+
+<dialog id="dlgAdd">
+  <h3>添加账号</h3>
+  <p class="hint" style="margin:0 0 4px">邮箱和 token 至少填一个。密码只存在本机 accounts.json,用于自动登录续期。</p>
+  <label>名称(可选,默认取邮箱前缀)</label><input id="fName">
+  <label>邮箱</label><input id="fEmail" placeholder="you@example.com">
+  <div class="only-browser"><label>密码(留空 = 不用密码自动填表)</label><input id="fPass" type="password"></div>
+  <div class="only-browser"><label>自动续期方式(token 失效时程序怎么重新登录)</label>
+    <select id="fProvider"><option value="">邮箱密码自动填表(要过 reCAPTCHA,基本会被拦)</option><option value="github">GitHub 登录(推荐:第一次你在弹窗里用它登一次,以后后台自动续)</option><option value="google">Google 登录(同上,Google 偶尔会拦自动化浏览器)</option></select></div>
+  <label>token(可选,粘贴网页 localStorage 里的 token)</label><input id="fToken" placeholder="eyJhbGciOi…">
+  <label class="only-browser" style="display:flex;gap:8px;align-items:center;margin-top:14px"><input type="checkbox" id="fInteractive"> 保存后立即弹出浏览器人工登录(密码 / Google / GitHub / Apple 都行)</label>
+  <div class="dlg-btns"><button id="addCancel">取消</button><button class="primary" id="addBtn">保存</button></div>
+  <div class="hint" id="addState" style="margin-top:10px"></div>
+</dialog>
+
+<dialog id="dlgToken">
+  <h3>更新 token:<span id="tName"></span></h3>
+  <p class="hint" style="margin:0 0 6px"><b>省事的办法</b>:把下面这个按钮拖到浏览器的书签栏。以后用你平时的浏览器登录 fish.audio,在它的页面上点一下这个书签,会打开本面板并自动把 token 存进去——不经过自动化浏览器,不会被 reCAPTCHA 拦。</p>
+  <p style="margin:0 0 10px"><a id="bmk" class="tag t-ok" href="#" style="text-decoration:none;cursor:grab;padding:5px 12px">📌 发 token 给 fish2api</a></p>
+  <p class="hint" style="margin:0 0 4px">或者手动:fish.audio 页面按 F12 → Application → Local Storage → 复制 <code>token</code> 的值粘到这里。</p>
+  <textarea id="tToken" style="min-height:90px;font-size:12px;word-break:break-all" placeholder="eyJhbGciOi…"></textarea>
+  <div class="dlg-btns"><button id="tCancel">取消</button><button class="primary" id="tSave">保存</button></div>
+  <div class="hint" id="tState" style="margin-top:10px"></div>
+</dialog>
+
+<dialog id="dlgKey">
+  <h3>访问密钥</h3>
+  <p class="hint" style="margin:0 0 4px">这台服务设置了 ACCESS_KEY,输入后保存在本浏览器。</p>
+  <input id="kInput" type="password" placeholder="ACCESS_KEY">
+  <div class="dlg-btns"><button class="primary" id="kSave">进入</button></div>
+  <div class="hint" id="kState" style="margin-top:10px"></div>
+</dialog>
+<div id="toast"></div>
+
+<script>
+var BASE=location.origin, health={}, accounts=[], balances={}, voices=[], selVoice=null, busy=false;
+var LS={get:function(k,d){try{var v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var prefs=LS.get('fish_prefs',{});
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function toast(m){var t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(function(){t.style.opacity=0},2600)}
+function fmtNum(n){n=n||0;return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n)}
+
+// ---------- 主题 / 导航 ----------
+function applyTheme(t){document.documentElement.dataset.theme=t;$('themeBtn').textContent=t==='dark'?'☀️':'🌙'}
+applyTheme(LS.get('fish_theme',matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+$('themeBtn').onclick=function(){var t=document.documentElement.dataset.theme==='dark'?'light':'dark';LS.set('fish_theme',t);applyTheme(t)};
+var titles={dash:'仪表盘',tts:'语音合成',media:'图像/视频',history:'生成历史',keys:'API Keys',help:'使用说明'};
+document.querySelectorAll('.nav').forEach(function(b){b.onclick=function(){show(b.dataset.v)}});
+function show(v){
+  document.querySelectorAll('.nav').forEach(function(x){x.classList.toggle('active',x.dataset.v===v)});
+  document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('active',x.id==='v-'+v)});
+  $('title').textContent=titles[v]; LS.set('fish_view',v);
+  if(v==='history') renderHistory();
+  if(v==='keys') keysLoad();
+  if(v==='media') mediaInit();
+}
+show(titles[LS.get('fish_view','dash')]?LS.get('fish_view','dash'):'dash');
+
+// ---------- 请求(自动带访问密钥;401 且服务要密钥时弹输入框) ----------
+function api(path,opts){
+  opts=opts||{}; opts.headers=Object.assign({},opts.headers||{});
+  var key=LS.get('fish_key',''); if(key) opts.headers['Authorization']='Bearer '+key;
+  return fetch(BASE+path,opts).then(function(res){
+    if(res.status===401&&res.headers.get('WWW-Authenticate')){needKey();throw new Error('需要访问密钥')}
+    return res;
+  });
+}
+function apiJSON(path,opts){
+  return api(path,opts).then(function(res){return res.text().then(function(t){
+    var d=null; try{d=t?JSON.parse(t):null}catch(e){d={detail:t}}
+    if(!res.ok) throw new Error((d&&(d.detail||d.message))||('HTTP '+res.status));
+    return d;
+  })});
+}
+function needKey(){ if(dlgKey.open) return; $('kInput').value=''; $('kState').textContent=LS.get('fish_key','')?'密钥不对或已更换,请重新输入':''; dlgKey.showModal(); }
+$('kSave').onclick=function(){var k=$('kInput').value.trim(); if(!k) return; LS.set('fish_key',k); dlgKey.close(); boot();};
+$('kInput').onkeydown=function(e){if(e.key==='Enter')$('kSave').click()};
+
+// ---------- 仪表盘 ----------
+function loadHealth(){return apiJSON('/health').then(function(d){health=d;renderHealth()})}
+function stat(l,n,c,ic,s){return '<div class="stat"><div class="l"><span class="ic" style="background:'+c+'">'+ic+'</span>'+esc(l)+'</div><div class="n" title="'+esc(n)+'">'+esc(n)+'</div><div class="s" title="'+esc(s)+'">'+esc(s)+'</div></div>'}
+function renderHealth(){
+  var d=health, push=(d.push_url||'').replace(/^https?:\/\//,'');
+  $('pill').innerHTML='<span><span class="dot" style="background:var(--ok)"></span>服务正常</span><span>账号 '+d.accounts_valid+'/'+d.accounts_total+' 可用</span>'+(d.browser_login?'':'<span class="tag t-dim">服务器模式</span>');
+  $('stats').innerHTML=
+    stat('账号总数',d.accounts_total,'#2b6de9','▣','含未登录和已过期的')+
+    stat('可用账号',d.accounts_valid,'#16a34a','✓','token 上游验证通过的,轮询只用这些')+
+    stat('登录方式',d.browser_login?'本机浏览器':'只收 token','#d97706','⇄',d.browser_login?(push?'登录后推送到 '+push:'自动续期 + 弹窗登录'):'由本地实例推送,或手动粘贴')+
+    stat('API key 模式',d.api_key_configured?'已配置':'未配置','#7c3aed','⚿','/api/tts 走官方接口,扣 API 积分');
+  $('accHint').textContent=d.browser_login
+    ?'token 每 10 分钟向上游验证一次,失效了会按「续期」方式自动重新登录(GitHub / Google 不经过 reCAPTCHA;密码自动填表基本会被拦)。第一次请用「弹窗登录」在窗口里用选定的方式登一遍。'
+    :'这台机器没有浏览器:在本地电脑运行本程序登录后会自动把 token 推送过来;也可以点「更新 token」手动粘贴。';
+  document.querySelectorAll('.only-browser').forEach(function(e){e.style.display=d.browser_login?'':'none'});
+  $('curlDemo').textContent='curl -X POST '+BASE+'/api/web/tts \\\n'+(d.access_key_required?'  -H "Authorization: Bearer <ACCESS_KEY>" \\\n':'')+
+    '  -H "Content-Type: application/json" -H "X-Account: acc1" \\\n  -d \'{"text":"你好 [停顿] 世界","voice_id":"<声音ID>","backend":"drama-3"}\' \\\n  --output out.mp3';
+}
+function loadAccounts(){
+  return apiJSON('/api/accounts').then(function(d){
+    accounts=d.accounts||[]; renderAccounts(); refreshAccountSelect();
+    accounts.forEach(function(a){if(a.usable&&!(a.name in balances)) loadBalance(a.name)});
+  });
+}
+function fmtLeft(a){
+  if(!a.token_preview) return '<span class="tag t-dim">无 token</span>';
+  var sec=a.seconds_left;
+  if(sec==null){ // 不透明 token 没有过期时间,靠定期向上游验证
+    var t=a.last_check?'验证于 '+new Date(a.last_check).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'待验证';
+    return '<span class="tag t-ok">有效</span><div class="hint">'+esc(t)+'</div>';
+  }
+  if(sec<=0) return '<span class="tag t-err">已过期</span>';
+  var d=Math.floor(sec/86400),hh=Math.floor(sec%86400/3600),mm=Math.floor(sec%3600/60);
+  var s=d>0?d+'天'+hh+'小时':(hh>0?hh+'小时'+mm+'分':mm+'分钟');
+  return '<span class="tag '+(sec<3600?'t-warn':'t-ok')+'">剩余 '+s+'</span>';
+}
+function renderAccounts(){
+  var tb=$('accTable').tBodies[0];
+  if(!accounts.length){tb.innerHTML='<tr><td colspan=6 class="hint" style="text-align:center;padding:22px">还没有账号,点右上角「+ 添加账号」</td></tr>';return}
+  tb.innerHTML=accounts.map(function(a){
+    var cls=a.status==='ok'?'t-ok':(a.status==='login_failed'?'t-err':'t-warn');
+    var exp=a.expires_at?'<div class="hint">'+esc(a.expires_at.replace('T',' ').slice(0,16))+'</div>':'';
+    var err=a.last_error?'<div class="hint" style="max-width:240px;white-space:normal">'+esc(a.last_error)+'</div>':'';
+    var btns='';
+    if(health.browser_login){
+      var sel=function(v){return a.provider===v||(!a.provider&&!v)?' selected':''};
+      btns+='<select class="sm" data-act="provider" title="自动续期方式:token 失效时程序怎么重新登录"><option value=""'+sel('')+'>续期:密码</option><option value="github"'+sel('github')+'>续期:GitHub</option><option value="google"'+sel('google')+'>续期:Google</option></select> ';
+      if(a.has_password||a.provider) btns+='<button class="sm" data-act="auto">自动续期</button> ';
+      btns+='<button class="sm" data-act="interactive">弹窗登录</button> ';
+    }
+    btns+='<button class="sm" data-act="token">更新 token</button> <button class="sm danger" data-act="del">删除</button>';
+    return '<tr data-name="'+esc(a.name)+'"><td><b>'+esc(a.name)+'</b></td><td>'+esc(a.email)+'</td>'+
+      '<td><span class="tag '+cls+'">'+esc(a.status)+'</span>'+err+'</td><td>'+fmtLeft(a)+exp+'</td>'+
+      '<td>'+balanceCell(a)+'</td><td style="white-space:nowrap">'+btns+'</td></tr>';
+  }).join('');
+}
+function balanceCell(a){
+  if(!a.usable) return '<span class="hint">—</span>';
+  var b=balances[a.name]; return b===undefined?'<span class="spin"></span>':b;
+}
+function loadBalance(name){
+  balances[name]=undefined;
+  apiJSON('/api/web/credit?account='+encodeURIComponent(name))
+    .then(function(d){balances[name]=fmtCredit(d.package)})
+    .catch(function(){balances[name]='<span class="tag t-err">查询失败</span>'})
+    .then(renderAccounts);
+}
+// 套餐钱包的字段名还没用真实账号核对过:优先挑名字像余额的数字字段,其余放 title 里
+function fmtCredit(p){
+  if(!p||typeof p!=='object') return '<span class="hint">—</span>';
+  if(p.status) return '<span class="tag t-err">HTTP '+p.status+'</span>';
+  if(p.error) return '<span class="tag t-err">失败</span>';
+  if(typeof p.balance==='number'){ // 套餐钱包:balance 剩余 / total 本期总额,type 是套餐类型
+    var extra=p.extra_balance?' <span class="hint">+'+p.extra_balance.toLocaleString()+' 额外</span>':'';
+    var end=p.current_period_end?'<div class="hint">本期到 '+esc(String(p.current_period_end).slice(0,10))+'</div>':'';
+    return '<div style="white-space:nowrap"><b>'+p.balance.toLocaleString()+'</b> <span class="hint">/ '+(p.total||0).toLocaleString()+'</span> <span class="tag t-dim">'+esc(p.type||'')+'</span>'+extra+end+'</div>';
+  }
+  var nums=Object.keys(p).filter(function(k){return typeof p[k]==='number'});
+  var main=nums.filter(function(k){return /credit|balance|remain|left|quota/i.test(k)});
+  var show=(main.length?main:nums).slice(0,3), raw=esc(JSON.stringify(p));
+  if(!show.length) return '<span class="hint" title="'+raw+'">'+raw.slice(0,36)+'…</span>';
+  return '<div title="'+raw+'" style="white-space:nowrap">'+show.map(function(k){return '<b>'+p[k].toLocaleString()+'</b> <span class="hint">'+esc(k)+'</span>'}).join('<br>')+'</div>';
+}
+$('accTable').onclick=function(e){
+  var b=e.target.closest('button[data-act]'); if(!b) return;
+  var name=b.closest('tr').dataset.name, act=b.dataset.act;
+  if(act==='del') delAccount(name); else if(act==='token') openToken(name); else loginAccount(name,act==='interactive');
+};
+$('accTable').onchange=function(e){
+  var s=e.target.closest('select[data-act=provider]'); if(!s) return;
+  var name=s.closest('tr').dataset.name, v=s.value;
+  apiJSON('/api/accounts/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:v})})
+    .then(function(){toast(v?'✓ 续期方式改为 '+v+';第一次请点「弹窗登录」用它登一次':'✓ 续期方式改为密码')})
+    .catch(function(e){toast('✗ '+e.message)}).then(loadAll);
+};
+$('refreshBal').onclick=function(){balances={};renderAccounts();accounts.forEach(function(a){if(a.usable)loadBalance(a.name)})};
+function loginAccount(name,interactive){
+  busy=true; document.querySelectorAll('#accTable button').forEach(function(b){b.disabled=true});
+  $('pill').innerHTML='<span class="spin"></span>'+(interactive?'已弹出浏览器窗口,请在窗口里完成登录(最长 5 分钟)…':'自动登录中(需通过 reCAPTCHA 风控)…');
+  apiJSON('/api/accounts/'+encodeURIComponent(name)+'/login?interactive='+(interactive?1:0),{method:'POST'})
+    .then(function(d){toast(d.warning?'⚠ '+d.warning:'✓ '+name+' 登录成功');delete balances[name]})
+    .catch(function(e){toast('✗ '+e.message)})
+    .then(function(){busy=false;loadAll()});
+}
+function delAccount(name){
+  if(!confirm('确定删除账号「'+name+'」?')) return;
+  apiJSON('/api/accounts/'+encodeURIComponent(name),{method:'DELETE'}).then(loadAll).catch(function(e){toast('✗ '+e.message)});
+}
+function refreshAccountSelect(){
+  var sel=$('account'), cur=sel.value||prefs.account, ok=accounts.filter(function(a){return a.usable});
+  sel.innerHTML=ok.length?ok.map(function(a){return '<option value="'+esc(a.name)+'">'+esc(a.name)+' ('+esc(a.email)+')</option>'}).join(''):'<option value="">⚠ 无可用账号</option>';
+  if(cur&&ok.some(function(a){return a.name===cur})) sel.value=cur;
+}
+
+// ---------- 添加账号 / 更新 token ----------
+$('addOpen').onclick=function(){$('addState').textContent='';dlgAdd.showModal()};
+$('addCancel').onclick=function(){dlgAdd.close()};
+$('addBtn').onclick=function(){
+  var body={name:$('fName').value.trim(),email:$('fEmail').value.trim(),password:$('fPass').value,token:$('fToken').value.trim(),provider:$('fProvider').value,interactive:$('fInteractive').checked};
+  if(!body.email&&!body.token){$('addState').textContent='邮箱和 token 至少填一个';return}
+  var btn=$('addBtn'); btn.disabled=true;
+  var popup=body.interactive||body.provider;
+  $('addState').innerHTML='<span class="spin"></span>'+(body.token||!(body.password||popup)?'保存中…':popup?'等待你在弹出的浏览器窗口完成登录'+(body.provider?'(请用 '+body.provider+')':'')+'…':'提交中,尝试自动登录(最长 90 秒)…');
+  apiJSON('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(d){
+    $('addState').textContent=d.warning?'⚠ '+d.warning:(d.usable?'✓ 已添加,可以用了':'已保存,状态: '+d.status);
+    loadAll();
+    if(d.usable) setTimeout(function(){dlgAdd.close();['fName','fEmail','fPass','fToken','fProvider'].forEach(function(i){$(i).value=''});$('fInteractive').checked=false},900);
+  }).catch(function(e){$('addState').textContent='✗ '+e.message}).then(function(){btn.disabled=false});
+};
+function openToken(name){
+  $('tName').textContent=name; $('tToken').value=''; $('tState').textContent=''; dlgToken.dataset.name=name;
+  // 书签在 fish.audio 页面上执行:把 localStorage 的 token 放进本面板地址的 # 片段里打开,由面板自己存
+  // (# 片段不会发给服务器;不走跨域请求,也就不碰浏览器的本地网络权限,书签里也不用带密钥)
+  var code="(function(){var m=document.cookie.match(/(?:^|; )token=([^;]*)/);var t=localStorage.getItem('token')||(m?decodeURIComponent(m[1]):'');if(!t){alert('这个页面还没登录 fish.audio');return}"+
+    "window.open("+JSON.stringify(BASE+'/#account='+encodeURIComponent(name)+'&token=')+"+encodeURIComponent(t))})()";
+  $('bmk').href='javascript:'+encodeURIComponent(code);
+  $('bmk').textContent='📌 发 token 给 fish2api · '+name;
+  dlgToken.showModal();
+}
+$('bmk').onclick=function(e){e.preventDefault();toast('把这个按钮拖到书签栏,而不是点它')};
+$('tCancel').onclick=function(){dlgToken.close()};
+$('tSave').onclick=function(){
+  var name=dlgToken.dataset.name, tok=$('tToken').value.trim();
+  if(!tok){$('tState').textContent='请粘贴 token';return}
+  apiJSON('/api/accounts/'+encodeURIComponent(name)+'/token',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})})
+    .then(function(d){dlgToken.close();toast(d.usable?'✓ token 已更新':'⚠ token 已保存但不可用(可能已过期)');delete balances[name];loadAll()})
+    .catch(function(e){$('tState').textContent='✗ '+e.message});
+};
+
+// ---------- 声音:搜索 / 试听 / 最近用过 ----------
+var voiceTimer=null, previewAudio=new Audio();
+$('voiceQ').oninput=function(){clearTimeout(voiceTimer);voiceTimer=setTimeout(voiceSearch,350)};
+$('voiceLang').onchange=voiceSearch;
+function voiceSearch(){
+  var q=$('voiceQ').value.trim(), lang=$('voiceLang').value;
+  $('voiceList').innerHTML='<div class="hint" style="padding:12px"><span class="spin"></span>搜索中…</div>';
+  apiJSON('/api/voices?page_size=15'+(q?'&title='+encodeURIComponent(q):'&sort_by=task_count')+(lang?'&language='+lang:''))
+    .then(function(d){voices=d.items||[];renderVoices()})
+    .catch(function(e){$('voiceList').innerHTML='<div class="hint" style="padding:12px">搜索失败: '+esc(e.message)+'</div>'});
+}
+function renderVoices(){
+  $('voiceList').innerHTML=voices.length?voices.map(function(v){
+    var s=(v.samples&&v.samples[0]&&v.samples[0].audio)||'';
+    return '<div class="voice'+(selVoice&&selVoice.id===v._id?' sel':'')+'" data-id="'+esc(v._id)+'"><div class="vb"><div class="vt">'+esc(v.title)+'</div>'+
+      '<div class="vm">'+esc((v.languages||[]).join('/'))+' · '+esc((v.tags||[]).slice(0,5).join(' / '))+' · ♥ '+fmtNum(v.like_count)+'</div></div>'+
+      (s?'<button class="sm" data-play="'+esc(s)+'" title="试听">▶</button>':'')+'</div>';
+  }).join(''):'<div class="hint" style="padding:12px">没有结果</div>';
+}
+$('voiceList').onclick=function(e){
+  var p=e.target.closest('button[data-play]'); if(p){preview(p);return}
+  var el=e.target.closest('.voice'); if(!el) return;
+  var v=voices.find(function(x){return x._id===el.dataset.id}); if(v) pickVoice({id:v._id,title:v.title});
+};
+function preview(btn){
+  var all=document.querySelectorAll('button[data-play]');
+  if(!previewAudio.paused&&previewAudio.src===btn.dataset.play){previewAudio.pause();return}
+  previewAudio.src=btn.dataset.play; previewAudio.play().catch(function(){toast('试听播放失败')});
+  all.forEach(function(b){b.textContent='▶'}); btn.textContent='■';
+  previewAudio.onended=previewAudio.onpause=function(){btn.textContent='▶'};
+}
+function pickVoice(v){
+  selVoice=v; prefs.voice=v;
+  var r=(prefs.recent||[]).filter(function(x){return x.id!==v.id}); r.unshift(v); prefs.recent=r.slice(0,6);
+  savePrefs(); renderVoices(); renderRecent();
+}
+function renderRecent(){
+  var r=prefs.recent||[];
+  $('recentVoices').innerHTML=r.length?'<span class="hint">最近:</span>'+r.map(function(v){return '<span class="chip'+(selVoice&&selVoice.id===v.id?' on':'')+'" data-id="'+esc(v.id)+'" data-title="'+esc(v.title)+'">'+esc(v.title)+'</span>'}).join(''):'';
+}
+$('recentVoices').onclick=function(e){var c=e.target.closest('.chip');if(c)pickVoice({id:c.dataset.id,title:c.dataset.title})};
+
+// ---------- 记住上次选择 ----------
+function savePrefs(){prefs.account=$('account').value;prefs.backend=$('backend').value;prefs.format=$('fmt').value;prefs.speed=$('speed').value;prefs.vol=$('vol').value;prefs.text=$('text').value;LS.set('fish_prefs',prefs)}
+function loadPrefs(){
+  if(prefs.backend)$('backend').value=prefs.backend; if(prefs.format)$('fmt').value=prefs.format;
+  if(prefs.speed)$('speed').value=prefs.speed; if(prefs.vol)$('vol').value=prefs.vol;
+  if(prefs.text!=null)$('text').value=prefs.text; if(prefs.voice)selVoice=prefs.voice;
+  renderRecent(); updateSliders();
+}
+['account','backend','fmt','speed','vol','text'].forEach(function(id){$(id).addEventListener('change',savePrefs)});
+$('speed').oninput=$('vol').oninput=updateSliders;
+function updateSliders(){$('speedV').textContent=parseFloat($('speed').value).toFixed(2)+'x';$('volV').textContent=$('vol').value+' dB'}
+
+// ---------- 标签插入 ----------
+var TAGS=['[停顿]','[笑着说]','[叹气]','[语气加重]','<whisper></whisper>','<strong></strong>'];
+$('tagChips').innerHTML=TAGS.map(function(t){return '<span class="chip">'+esc(t)+'</span>'}).join('');
+$('tagChips').onclick=function(e){
+  var c=e.target.closest('.chip'); if(!c) return;
+  var ta=$('text'), t=c.textContent, s=ta.selectionStart, en=ta.selectionEnd, sel=ta.value.slice(s,en), mid=t.indexOf('></');
+  var ins=mid>0&&sel?t.slice(0,mid+1)+sel+t.slice(mid+1):t;
+  ta.setRangeText(ins,s,en,'end');
+  if(mid>0&&!sel) ta.setSelectionRange(s+mid+1,s+mid+1);
+  ta.focus(); savePrefs();
+};
+
+// ---------- 合成 ----------
+$('genBtn').onclick=generate;
+function showErr(m){$('genErr').textContent=m;$('genErr').style.display='block'}
+function generate(){
+  var text=$('text').value.trim(); if(!text) return showErr('请输入文本');
+  var acc=$('account').value; if(!acc) return showErr('没有可用账号:先在仪表盘添加并登录账号');
+  savePrefs(); var btn=$('genBtn'); btn.disabled=true;
+  $('genState').innerHTML='<span class="spin"></span>合成中…'; $('genErr').style.display='none';
+  var body={text:text,backend:$('backend').value,format:$('fmt').value,prosody:{speed:parseFloat($('speed').value),pitch:1.0,volume:parseFloat($('vol').value)}};
+  if(selVoice) body.voice_id=selVoice.id;
+  var t0=Date.now();
+  api('/api/web/tts',{method:'POST',headers:{'Content-Type':'application/json','X-Account':acc},body:JSON.stringify(body)}).then(function(res){
+    if(!res.ok) return res.text().then(function(t){var d;try{d=JSON.parse(t)}catch(e){}throw new Error((d&&(d.detail||d.message))||('HTTP '+res.status+' '+t.slice(0,200)))});
+    var taskId=res.headers.get('X-Task-Id')||'';
+    return res.blob().then(function(blob){
+      var rec={id:Date.now(),time:new Date().toISOString(),text:text,voice:selVoice?selVoice.title:'默认声音',voice_id:selVoice?selVoice.id:'',backend:body.backend,format:body.format,account:acc,task_id:taskId,size:blob.size,ms:Date.now()-t0};
+      showResult(rec,blob); histAdd(rec,blob); delete balances[acc]; loadAccounts();
+      $('genState').textContent='✓ 完成';
+    });
+  }).catch(function(e){showErr(e.message||String(e));$('genState').textContent=''}).then(function(){btn.disabled=false});
+}
+function showResult(rec,blob){
+  var url=URL.createObjectURL(blob), p=$('player');
+  p.src=url; $('dl').href=url; $('dl').download='fish_'+rec.id+'.'+rec.format;
+  $('meta').textContent='耗时 '+(rec.ms/1000).toFixed(1)+'s · '+(rec.size/1024).toFixed(0)+' KB · '+rec.voice+' · '+rec.backend+(rec.task_id?' · task '+rec.task_id.slice(0,8):'');
+  $('result').style.display='block'; p.play().catch(function(){});
+}
+
+// ---------- 生成历史(IndexedDB:元数据 + 音频 blob) ----------
+var dbp=new Promise(function(res,rej){
+  var r=indexedDB.open('fish_tts',1);
+  r.onupgradeneeded=function(){r.result.createObjectStore('meta',{keyPath:'id'});r.result.createObjectStore('audio')};
+  r.onsuccess=function(){res(r.result)}; r.onerror=function(){rej(r.error)};
+});
+function histAll(){return dbp.then(function(db){return new Promise(function(res){var r=db.transaction('meta').objectStore('meta').getAll();r.onsuccess=function(){res(r.result.sort(function(a,b){return b.id-a.id}))};r.onerror=function(){res([])}})}).catch(function(){return[]})}
+function histBlob(id){return dbp.then(function(db){return new Promise(function(res){var r=db.transaction('audio').objectStore('audio').get(id);r.onsuccess=function(){res(r.result)};r.onerror=function(){res(null)}})}).catch(function(){return null})}
+function histDel(id){return dbp.then(function(db){return new Promise(function(res){var t=db.transaction(['meta','audio'],'readwrite');t.objectStore('meta').delete(id);t.objectStore('audio').delete(id);t.oncomplete=res;t.onerror=res})}).catch(function(){})}
+function histAdd(rec,blob){
+  dbp.then(function(db){
+    var t=db.transaction(['meta','audio'],'readwrite'); t.objectStore('meta').put(rec); t.objectStore('audio').put(blob,rec.id);
+    t.oncomplete=function(){histAll().then(function(all){all.slice(100).forEach(function(r){histDel(r.id)})})};
+  }).catch(function(){});
+}
+function renderHistory(){
+  histAll().then(function(all){
+    $('histList').innerHTML=all.length?all.map(function(r){
+      return '<div class="hist" data-id="'+r.id+'"><div class="hb"><div class="ht">'+esc(r.text)+'</div><div class="hm">'+esc(r.time.replace('T',' ').slice(0,16))+' · '+esc(r.voice)+' · '+esc(r.backend)+' · '+esc(r.account)+' · '+(r.size/1024).toFixed(0)+' KB</div></div>'+
+        '<button class="sm" data-h="play">▶ 播放</button><button class="sm" data-h="dl">⬇</button><button class="sm danger" data-h="del">✕</button></div>';
+    }).join(''):'<p class="hint" style="margin:0">还没有记录。合成成功后会自动保存在这里。</p>';
+  });
+}
+$('histList').onclick=function(e){
+  var b=e.target.closest('button[data-h]'); if(!b) return;
+  var id=+b.closest('.hist').dataset.id, act=b.dataset.h;
+  if(act==='del') return histDel(id).then(renderHistory);
+  histAll().then(function(all){
+    var rec=all.find(function(r){return r.id===id});
+    histBlob(id).then(function(blob){
+      if(!blob||!rec) return toast('音频已不在本地');
+      if(act==='dl'){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fish_'+id+'.'+rec.format;a.click()}
+      else{showResult(rec,blob);show('tts')}
+    });
+  });
+};
+$('clearHist').onclick=function(){
+  if(!confirm('清空全部生成历史?')) return;
+  histAll().then(function(all){return Promise.all(all.map(function(r){return histDel(r.id)}))}).then(renderHistory);
+};
+
+
+// ---------- API Keys(仅管理员可见;使用者 key 的发放/吊销) ----------
+function keysLoad(){
+  return apiJSON('/api/keys').then(function(d){
+    var tb=$('keyTable').tBodies[0];
+    var ks=(d&&d.keys)||[];
+    if(!ks.length){tb.innerHTML='<tr><td colspan=2 class="hint">还没有 key,点右上角「发放新 Key」</td></tr>';return}
+    tb.innerHTML=ks.map(function(k){
+      return "<tr><td><code>"+esc(k)+"</code></td><td><button class=\"danger\" onclick=\"keyReveal('"+esc(k)+"')\">吊销</button></td></tr>"
+    }).join('');
+  }).catch(function(e){$('keyTable').tBodies[0].innerHTML='<tr><td colspan=2 class="hint">加载失败:'+esc(e.message)+'</td></tr>'});
+}
+function keyAdd(){
+  apiJSON('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})}).then(function(d){
+    keysLoad();
+    if(d&&d.key){ if(navigator.clipboard){navigator.clipboard.writeText(d.key).then(function(){toast('已生成并复制到剪贴板')},function(){toast('已生成: '+d.key)})} else toast('已生成: '+d.key) }
+  }).catch(function(e){toast('发放失败: '+e.message)});
+}
+function keyReveal(k){
+  if(!confirm('确定吊销 '+k+' ?使用它的客户端会立刻 401')) return;
+  apiJSON('/api/keys',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})}).then(function(){keysLoad()}).catch(function(e){toast('吊销失败: '+e.message)});
+}
+
+// ---------- 图像/视频生成 ----------
+var mModels=[];
+function mediaFillAccounts(){
+  var sel=$('mAccount'), cur=sel.value;
+  var valid=accounts.filter(function(a){return a.usable||a.status==='ok'});
+  sel.innerHTML=valid.length?valid.map(function(a){return '<option value="'+esc(a.name)+'">'+esc(a.name)+'('+esc(a.email)+')</option>'}).join(''):'<option value="">⚠ 无可用账号</option>';
+  if(cur&&valid.some(function(a){return a.name===cur})) sel.value=cur;
+}
+function mediaInit(){
+  mediaFillAccounts();
+  apiJSON('/api/web/media/entitlements').then(function(e){
+    if(!e) return;
+    var parts=[];
+    if(e.plan) parts.push('套餐: '+e.plan);
+    if(e.dailyImage) parts.push('今日图像余量 '+e.dailyImage.remaining+'/'+e.dailyImage.limit);
+    parts.push(e.videoAllowed?'视频 ✓':'视频 ✗(需 plus)');
+    $('mEnt').textContent=parts.join(' · ');
+  }).catch(function(){});
+  if(mModels.length) return mediaFillModels();
+  apiJSON('/api/web/media/models').then(function(list){
+    mModels=(list||[]).filter(function(m){return m.available});
+    mediaFillModels();
+  }).catch(function(){});
+}
+function mediaFillModels(){
+  var sel=$('mModel'), cur=sel.value;
+  sel.innerHTML=mModels.map(function(m){
+    return '<option value="'+esc(m.id)+'">'+esc(m.id)+' ('+m.modes.join('/')+')</option>'
+  }).join('');
+  if(cur&&mModels.some(function(m){return m.id===cur})) sel.value=cur;
+}
+function mediaGen(){
+  var acc=$('mAccount').value;
+  if(!acc){showErr('mErr','没有可用账号:先在仪表盘登录一个');return}
+  var prompt=$('mPrompt').value.trim();
+  if(!prompt){showErr('mErr','请填写 Prompt');return}
+  var model=$('mModel').value; if(!model){showErr('mErr','没有可用模型');return}
+  var isVideo=/kling|sora|hailuo|minimax|wan-|veo|seedance|grok-imagine-video|gemini-omni|heygen/i.test(model);
+  var variant=isVideo?'t2v':'t2i';
+  var params={};
+  if($('mAR').value.trim()) params.aspect_ratio=$('mAR').value.trim();
+  var res=$('mRes').value.trim();
+  if(res) params[variant==='t2v'?'resolution':'image_size']=res;
+  else if(variant==='t2i') params.image_size='1K';
+  if($('mDur').value.trim()) params.duration=parseInt($('mDur').value,10);
+  var body={model:model,variant:variant,mode:isVideo?'video':'image',count:parseInt($('mCount').value,10)||1,params:params,prompt:prompt,wait:parseInt($('mWait').value,10)};
+  $('mGen').disabled=true;
+  $('mState').innerHTML='<span class="spin"></span>生成中…(图像约 1 分钟,视频数分钟)';
+  $('mErr').style.display='none'; $('mOut').innerHTML='';
+  apiJSON('/api/web/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(d){
+    $('mGen').disabled=false; $('mState').textContent='';
+    renderMedia(d);
+  }).catch(function(e){
+    $('mGen').disabled=false;$('mState').textContent='';
+    var m=e.message||String(e);
+    var tips={'FREE_IMAGE_DAILY_LIMIT_REACHED':'今日免费图像额度已用完(UTC 0 点重置,或升级 plus)',
+              'FREE_IMAGE_DAILY_LIMIT':'今日免费图像额度已用完',
+              'Insufficient credits':'账户 credits 不足'};
+    for(var k in tips){ if(m.indexOf(k)>=0){ m=tips[k]; break; } }
+    showErr('mErr',m)
+  });
+}
+function renderMedia(d){
+  var res=(d.result&&d.result.results)||[];
+  var html='';
+  var any=false;
+  res.forEach(function(x,i){
+    var mi=x.mediaItem; if(!mi) return; any=true;
+    // sigUrl 是服务端签好的代理下载地址(15 分钟有效),<img>/<video> 可直接加载
+    var src=BASE+(mi.sigUrl||('/api/web/media/file?url='+encodeURIComponent(mi.url)));
+    if(mi.type==='video') html+='<video src="'+src+'" controls style="width:100%;border-radius:10px;margin-top:10px"></video>';
+    else html+='<img src="'+src+'" style="width:100%;border-radius:10px;margin-top:10px">';
+  });
+  if(any){
+    html+='<div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+    res.forEach(function(x,i){ if(!x.mediaItem) return;
+      html+='<a class="tag t-ok" style="text-decoration:none;cursor:pointer" href="'+BASE+x.mediaItem.sigUrl+'" target="_blank">⬇ 下载 #'+(i+1)+'</a>';
+    });
+    html+='<span class="hint">消耗 '+esc(String(d.credits_charged))+' credits</span></div>';
+  } else {
+    html='<div class="hint">还没完成。任务号:<code>'+esc(String(d.group_id))+'</code>(稍后在本页重试或用 GET /api/web/media/任务号 查询)</div>';
+  }
+  $('mOut').innerHTML=html;
+}
+function showErr(id,m){var e=$(id);e.textContent=m;e.style.display='block'}
+
+// ---------- 启动 ----------
+function loadAll(){return loadHealth().then(loadAccounts).catch(function(){})}
+function boot(){return loadAll().then(voiceSearch).then(function(){if(health.access_key_required&&!isUserKeyOnly()) keysLoad()}).then(takeHashToken)}
+function isUserKeyOnly(){var k=LS.get('fish_key','');return k.indexOf('sk-fish-')===0}
+// 书签打开的地址形如 /#account=xx&token=yy:存进对应账号,然后把地址栏里的 token 抹掉
+function takeHashToken(){
+  var p=new URLSearchParams(location.hash.slice(1)), name=p.get('account'), tok=p.get('token');
+  if(!name||!tok) return;
+  history.replaceState(null,'',location.pathname); show('dash');
+  apiJSON('/api/accounts/'+encodeURIComponent(name)+'/token',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})})
+    .then(function(d){toast(d.usable?'✓ 书签送来的 token 已存入账号 '+name:'⚠ token 已保存但不可用(可能已过期)');delete balances[name];loadAll()})
+    .catch(function(e){toast('✗ 存 token 失败: '+e.message)});
+}
+loadPrefs();
+apiJSON('/health').then(function(d){
+  health=d; renderHealth();
+  if(d.access_key_required&&!LS.get('fish_key','')) return needKey();
+  boot();
+}).catch(function(){$('pill').innerHTML='<span class="tag t-err">服务无响应</span>'});
+setInterval(function(){if(!busy&&!dlgKey.open) loadAll().then(function(){if(document.getElementById('v-media').classList.contains('active')) mediaFillAccounts()})},15000);
+</script>
+</body>
+</html>

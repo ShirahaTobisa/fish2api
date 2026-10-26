@@ -1,0 +1,6 @@
+*.exe
+accounts.json*
+login-debug.png
+data/
+.env
+browser-profile/

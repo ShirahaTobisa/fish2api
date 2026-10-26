@@ -1,0 +1,9 @@
+# 运行产物和敏感数据(密钥、明文密码、登录态),不进仓库
+*.exe
+*.log
+*.mp3
+.env
+accounts.json*
+data/
+browser-profile/
+login-debug.png
