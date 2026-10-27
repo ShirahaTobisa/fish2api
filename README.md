@@ -69,21 +69,21 @@ Fish 的网页 token 等同账号登录态，拿到 token 就能用这个账号�
 ## 部署（Docker Compose）
 
 ```bash
-git clone https://github.com/ShirahaTobisa/fish2api.git /srv/fish2api
-cd /srv/fish2api
+git clone https://github.com/ShirahaTobisa/fish2api.git
+cd fish2api
 echo "ACCESS_KEY=$(openssl rand -hex 24)" > .env
-docker compose up -d --build        # 也可以在 Dockge 里导入这个目录
+docker compose up -d --build
 ```
 
 - 镜像 = Go 程序 + Alpine 的 chromium（约 +200MB），chromium 专门用来取网页合成要的人机验证；
-- 容器只监听 `127.0.0.1:8765`，交给反代做 HTTPS。`docker-compose.yml` 里加入了一个叫 `caddy` 的外部网络（反代容器按容器名 `fish2api` 访问），换成你自己反代所在的网络，或者删掉这段、反代到 `127.0.0.1:8765`；
+- 容器只监听 `127.0.0.1:8765`，交给反代做 HTTPS。反代也跑在 Docker 里的话，在同目录建 `docker-compose.override.yml` 把 `fish2api` 加进反代所在的网络（这个文件不进仓库），反代就能按容器名访问 `fish2api:8765`；
 - 数据都在 `./data`，升级时拉新代码再 `docker compose up -d --build`，数据不受影响。
 
 Caddy 示例：
 
 ```text
 tts.example.com {
-    reverse_proxy fish2api:8765
+    reverse_proxy 127.0.0.1:8765
 }
 ```
 
@@ -95,7 +95,7 @@ curl -X POST https://tts.example.com/api/web/tts \
   -d '{"text":"server test"}' --output test.mp3
 ```
 
-如果返回 `400 "reCAPTCHA verification failed"`，说明 Google 不给这个机房 IP 的无头浏览器打高分，换一台服务器试，或改用官方 API 模式。香港机房 2026-10 实测能过。
+如果返回 `400 "reCAPTCHA verification failed"`，说明 Google 不给这个机房 IP 的无头浏览器打高分，换一台服务器试，或改用官方 API 模式。
 
 ## 首次使用流程
 

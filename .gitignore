@@ -10,3 +10,4 @@ login-debug.png
 config.json*
 requests.jsonl*
 api_keys.txt*
+docker-compose.override.yml
