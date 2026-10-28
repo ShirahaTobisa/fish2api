@@ -45,7 +45,7 @@ Fish 的网页 token 等同账号登录态，拿到 token 就能用这个账号�
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `ACCESS_KEY` | 无 | 管理员密钥。设了之后 `/api/*`、`/v1/*` 都要带密钥，公网部署必设。 |
+| `ACCESS_KEY` ✎ | 无 | 管理员密钥。设了之后 `/api/*`、`/v1/*` 都要带密钥，公网部署必设。 |
 | `HOST` / `PORT` | 镜像里 `0.0.0.0` / `8765` | 监听地址。 |
 | `ACCOUNTS_FILE` | 镜像里 `/data/accounts.json` | 账号库路径；`config.json`、`requests.jsonl` 放在同一个目录。 |
 | `DISABLE_LOGIN` | 镜像里 `1` | 服务器模式：容器没有显示器，关掉弹窗登录，token 靠书签或粘贴送进来。 |
@@ -99,7 +99,7 @@ curl -X POST https://tts.example.com/api/web/tts \
 
 ## 首次使用流程
 
-1. 打开域名，输入 `ACCESS_KEY`。
+1. 打开域名，输入 `.env` 里的 `ACCESS_KEY`。想换成好记的，在「设置」里改，保存马上生效。
 2. 「账号」→「+ 添加账号」，再点「更新 token」：把弹窗里的书签按钮拖到书签栏，用你平时的浏览器登录 fish.audio，在它的页面上点一下书签，token 就自动发过来。也可以在 fish.audio 按 F12 → Application → Local Storage 复制 `token` 粘贴进去。
 3. 「API Keys」→「+ 发放新 Key」，写上给谁用（比如 new-api、酒馆）。
 4. 「语音合成」里试一句，「请求记录」里能看到这一条。
@@ -361,7 +361,7 @@ curl https://new-api.example.com/v1/audio/speech \
 
 ```text
 /data/accounts.json       # 账号和网页 token
-/data/config.json         # 面板里改过的设置 + 使用者 key
+/data/config.json         # 面板里改过的设置（含管理员密钥）+ 使用者 key
 /data/requests.jsonl      # 请求记录，一行一条
 /data/browser-profile/    # 人机验证用的浏览器配置；OAuth 续期的账号配置也放这里
 ```
@@ -386,6 +386,7 @@ curl https://new-api.example.com/v1/audio/speech \
 ## 安全建议
 
 - 公网一定设 `ACCESS_KEY`，容器只绑 `127.0.0.1`，交给反代做 HTTPS。
+- 在面板里改过的管理员密钥忘了：到服务器上看 `data/config.json` 里的 `ACCESS_KEY`；把这一项删掉再重启，就退回 `.env` 里的。
 - 给每个用途单独发一把使用者 key，泄露了在面板里停用或吊销，不用换管理员密钥。
 - `/data` 里是账号 token 和 key，按密码对待；带 `?key=` 的链接也别公开分享。
 - 非官方自动化，控制调用频率，账号风险自担。

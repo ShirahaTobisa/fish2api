@@ -392,7 +392,7 @@ func mediaSignSecret() string {
 	if s := os.Getenv("MEDIA_SIGN_SECRET"); s != "" {
 		return s
 	}
-	return "fish2api-media|" + accessKey // 没单独配时从管理员密钥派生
+	return "fish2api-media|" + os.Getenv("ACCESS_KEY") // 没单独配时从管理员密钥派生(面板里换了密钥,之前发的签名链接随之失效)
 }
 
 func hmacSHA256(secret, msg string) string {

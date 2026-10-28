@@ -41,8 +41,9 @@ func adminRoutes(mux *http.ServeMux) {
 // ---------------------------------------------------------------- config.json:设置 + 使用者 key
 
 // settingKeys 面板「设置」页能改的环境变量。保存时直接写进本进程的环境变量,用到的地方都是现读,所以立即生效;
-// 面板里清空某项 = 退回启动时的环境变量(没有就是默认值)。监听地址、ACCESS_KEY、账号库路径只能改环境变量后重启。
+// 面板里清空某项 = 退回启动时的环境变量(没有就是默认值)。监听地址、账号库路径只能改环境变量后重启。
 var settingKeys = []string{
+	"ACCESS_KEY",
 	"TOKEN_VERIFY_INTERVAL_SECONDS", "ACCOUNT_COOLDOWN_SECONDS",
 	"CACHE_MAX_MB", "CACHE_MAX_ITEM_MB", "CACHE_TTL_SECONDS",
 	"RECAPTCHA_TTL_SECONDS", "RECAPTCHA_KEEPWARM",
@@ -135,6 +136,23 @@ func handleSettingsPut(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	cfgMu.Lock()
+	// 管理员密钥要放进浏览器的请求头,只能是不带空格的英文字符;也不能和使用者 key 撞上(撞上那把就成了管理员)
+	if v := strings.TrimSpace(in["ACCESS_KEY"]); v != "" {
+		msg := ""
+		switch {
+		case len(v) < 8:
+			msg = "管理员密钥至少 8 位"
+		case strings.ContainsFunc(v, func(r rune) bool { return r <= ' ' || r > '~' }):
+			msg = "管理员密钥只能用英文字母、数字和符号,不能有空格和中文"
+		case slices.ContainsFunc(cfg.Keys, func(k apiKey) bool { return k.Key == v }):
+			msg = "和一把使用者 key 一样了,换一个"
+		}
+		if msg != "" {
+			cfgMu.Unlock()
+			fail(w, 400, msg)
+			return
+		}
+	}
 	for k, v := range in {
 		if v = strings.TrimSpace(v); v == "" || v == origEnv[k] {
 			delete(cfg.Env, k)

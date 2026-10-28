@@ -1,6 +1,6 @@
 // 使用者 API key:发给调用方(脚本/new-api/酒馆)的钥匙,与管理员的 ACCESS_KEY 分离。
 //
-//   - ACCESS_KEY(环境变量):管理员,全部权限,面板登录用它;
+//   - ACCESS_KEY(环境变量,面板「设置」里也能改):管理员,全部权限,面板登录用它;
 //   - 使用者 key(面板「API Keys」页发放,存在 data/config.json):有名字、能停用,
 //     只能调合成与查询(见 userAllowed),碰账号、密钥、设置、记录这些管理接口会被拒;
 //     没配 ACCESS_KEY 时视为开放实例,一切照旧不拦;
@@ -58,7 +58,7 @@ func keyOf(key string) (string, int) {
 	if key == "" {
 		return "", 0
 	}
-	if accessKey != "" && subtle.ConstantTimeCompare([]byte(key), []byte(accessKey)) == 1 {
+	if ak := os.Getenv("ACCESS_KEY"); ak != "" && subtle.ConstantTimeCompare([]byte(key), []byte(ak)) == 1 {
 		return adminKeyName, 2
 	}
 	cfgMu.Lock()

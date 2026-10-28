@@ -32,10 +32,9 @@ import (
 const upstream = "https://api.fish.audio"
 
 var (
-	store     = NewAccountStore()
-	accessKey = os.Getenv("ACCESS_KEY")                       // 设了之后 /api/* 都要带 Authorization: Bearer <key>
-	pushURL   = strings.TrimRight(os.Getenv("PUSH_URL"), "/") // 本地登录拿到的 token 推送到这台服务器
-	pushKey   = os.Getenv("PUSH_KEY")                         // 那台服务器的 ACCESS_KEY
+	store   = NewAccountStore()
+	pushURL = strings.TrimRight(os.Getenv("PUSH_URL"), "/") // 本地登录拿到的 token 推送到这台服务器
+	pushKey = os.Getenv("PUSH_KEY")                         // 那台服务器的 ACCESS_KEY
 )
 
 // accountCooldown 账号上游 429/5xx 后冷却多久。面板「设置」里能改、保存即生效(见 admin.go),所以现读。
@@ -71,7 +70,7 @@ func guard(next http.Handler) http.Handler {
 		}
 		name, level := keyOf(requestKey(r))
 		r = r.WithContext(context.WithValue(r.Context(), callerCtx{}, name))
-		if accessKey == "" {
+		if os.Getenv("ACCESS_KEY") == "" { // 面板「设置」里能改,所以现读
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -364,7 +363,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 		"accounts_total":       total,
 		"accounts_valid":       usable,
 		"browser_login":        hasBrowser && !loginDisabled, // 容器里装了 chromium 也没有显示器,登录仍不可用
-		"access_key_required":  accessKey != "",
+		"access_key_required":  os.Getenv("ACCESS_KEY") != "",
 		"user_api_keys":        keyCount(), // 使用者 key 数量(不回显内容)
 		"push_url":             pushURL,
 	})

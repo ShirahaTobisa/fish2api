@@ -364,7 +364,7 @@ tr.click{cursor:pointer}
 <div class="view" id="v-keys">
   <div class="card">
     <h3>使用者 API Keys <span class="sp"></span><button class="primary sm" id="keyNew">+ 发放新 Key</button></h3>
-    <p class="hint" style="margin:0 0 10px">发给 new-api、酒馆或朋友用:只能合成和查询,看不到账号、Key 和设置;停用后立刻 401。管理员密钥是环境变量 <code>ACCESS_KEY</code>,不在这里管。</p>
+    <p class="hint" style="margin:0 0 10px">发给 new-api、酒馆或朋友用:只能合成和查询,看不到账号、Key 和设置;停用后立刻 401。管理员密钥在「设置」页改。</p>
     <div class="tw"><table id="keyTable"><thead><tr><th>名字</th><th>Key</th><th>启用</th><th>调用</th><th>最后使用</th><th>发放时间</th><th></th></tr></thead><tbody></tbody></table></div>
   </div>
 </div>
@@ -387,7 +387,7 @@ tr.click{cursor:pointer}
     <p class="hint" style="margin:8px 0 0">文本里可用网页同款标签:<code>[停顿]</code> <code>[笑着说]</code> <code>[叹气]</code> <code>&lt;whisper&gt;悄悄话&lt;/whisper&gt;</code> <code>&lt;strong&gt;重读&lt;/strong&gt;</code>。不带 <code>X-Account</code> 时在可用账号间轮询。</p>
     <p class="hint" style="margin:8px 0 0">也兼容 OpenAI 的 <code>POST /v1/audio/speech</code>(model 填 drama-3 等,voice 填声音 ID 或名字,多人用逗号隔开)和 <code>POST /v1/images/generations</code>(model 填 fish-nano-banana 等),可以直接作为 OpenAI 类型渠道接进 new-api,密钥填一把「API Keys」页发的 key。音调、音量这些 Fish 参数放 <code>metadata</code> 里才能穿过 new-api。</p>
     <p class="hint" style="margin:8px 0 0">原来直连 <code>api.fish.audio</code> 的插件:把地址换成本服务、key 换成使用者 key 就行,<code>/compat/v1/audio/speech</code> 和声音库 <code>/model</code> 都是官方同款(参考音频克隆暂不支持)。</p>
-    <p class="hint" style="margin:8px 0 0">缓存、冷却、人机验证这些在「设置」页改,保存就生效;监听地址、端口、<code>ACCESS_KEY</code> 只能改环境变量后重启。</p>
+    <p class="hint" style="margin:8px 0 0">缓存、冷却、人机验证这些在「设置」页改,保存就生效;监听地址、端口只能改环境变量后重启。</p>
   </div>
 </div>
 </main>
@@ -1046,6 +1046,8 @@ $('keyNew').onclick=function(){
 // ---------- 设置(保存后服务端立即生效;清空一项 = 退回环境变量/默认值) ----------
 // 每项:[环境变量, 名字, 默认值, 说明, 类型(省略=数字 / sw=开关 / pw=密码)]
 var SETS=[
+  ['面板登录',[
+    ['ACCESS_KEY','管理员密钥','','登录面板用,至少 8 位,保存后马上生效;没设置时谁都能访问','pw']]],
   ['账号与 token',[
     ['TOKEN_VERIFY_INTERVAL_SECONDS','token 验证间隔(秒)','600','多久向 fish 确认一次 token 还能用,失效的提前踢掉'],
     ['ACCOUNT_COOLDOWN_SECONDS','失败冷却(秒)','30','账号被 fish 限流或报错后,这段时间里轮询跳过它']]],
@@ -1079,7 +1081,7 @@ function renderSettings(d){
       return '<div class="set"><div class="sl"><b>'+s[1]+'</b><span class="hint">'+s[3]+'</span></div>'+ctl+'</div>';
     }).join('')+setExtra(g[0],d)+'</div>';
   }).join('')+'<div class="card"><h3>运行信息 <span class="hint" style="font-weight:400">这些要改环境变量后重启</span></h3><table class="kvt">'+
-    [['监听地址',d.info.addr],['数据目录',d.info.data_dir],['浏览器',d.info.browser],['管理员密钥 ACCESS_KEY',health.access_key_required?'已设置':'没设置:谁都能访问,公网一定要设']]
+    [['监听地址',d.info.addr],['数据目录',d.info.data_dir],['浏览器',d.info.browser]]
       .map(function(r){return '<tr><td class="hint" style="white-space:nowrap">'+r[0]+'</td><td>'+esc(r[1])+'</td></tr>'}).join('')+'</table></div>';
   setDirty();
 }
@@ -1098,7 +1100,13 @@ function setChanges(){
 function setDirty(){var n=Object.keys(setChanges()).length;$('saveBar').classList.toggle('on',n>0);$('saveTip').textContent='改了 '+n+' 项,还没保存'}
 ['input','change'].forEach(function(ev){$('setList').addEventListener(ev,setDirty)});
 $('setUndo').onclick=loadSettings;
-$('setSave').onclick=function(){apiJSON('/api/settings',jsonOpts('PUT',setChanges())).then(function(d){renderSettings(d);toast('✓ 已保存,马上生效')},failToast)};
+$('setSave').onclick=function(){
+  var ch=setChanges();
+  apiJSON('/api/settings',jsonOpts('PUT',ch)).then(function(d){
+    if('ACCESS_KEY' in ch) LS.set('fish_key',d.values.ACCESS_KEY); // 换了管理员密钥:本浏览器跟着换,不用重新登录
+    renderSettings(d);toast('ACCESS_KEY' in ch?'✓ 已保存,管理员密钥已换,别的设备要重新输入':'✓ 已保存,马上生效');
+  },failToast);
+};
 // 缓存、请求记录两组底下各有一行「现有多少 + 清空」;少用又删数据的按钮放这里,不放在常用的工具条上
 var CLEARS={'结果缓存':['/api/cache','当前占用','清空缓存','清空结果缓存?之后同样的请求会重新生成、重新扣额度'],
   '请求记录':['/api/logs/requests','现有记录','清空记录','清空全部请求记录?清了就找不回来']};
