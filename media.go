@@ -602,3 +602,46 @@ func imageModels(r *http.Request) []string {
 	imgModels.ids, imgModels.at = ids, time.Now()
 	return ids
 }
+
+// handleWebMediaSchema GET /api/web/media/schema:内嵌的参数档位表
+// (每个模型的 mode、variant、参数选项、默认值;来源见 media_schema.go)。
+func handleWebMediaSchema(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(mediaSchemaJSON)
+}
+
+// handleWebMediaPrice POST /api/web/media/price:计价预览(不下单不扣费)。
+// 请求体与 /api/web/media 相同(model/variant/mode/count/params),返回 credits 与 pricingVersion。
+func handleWebMediaPrice(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Model   string         `json:"model"`
+		Variant string         `json:"variant"`
+		Mode    string         `json:"mode"`
+		Count   int            `json:"count"`
+		Params  map[string]any `json:"params"`
+		Wait    int            `json:"wait"`
+	}
+	if err := readJSON(r, &in); err != nil {
+		fail(w, 400, "请求体不是合法 JSON: "+err.Error())
+		return
+	}
+	if in.Count < 1 {
+		in.Count = 1
+	}
+	body := mediaPriceBody{ModelID: in.Model, VariantKey: in.Variant, Mode: in.Mode, Count: in.Count, Params: in.Params}
+	cred, err := resolveWebCred(r)
+	if err != nil {
+		fail(w, 401, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	status, b, err := mediaPrice(ctx, cred, body)
+	if err != nil {
+		fail(w, 502, "计价请求失败: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(b)
+}

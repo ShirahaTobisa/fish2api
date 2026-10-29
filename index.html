@@ -337,15 +337,12 @@ tr.click{cursor:pointer}
         <div style="flex:2"><label>模型</label><select id="mModel"></select></div>
         <div style="flex:1"><label>数量</label><input id="mCount" type="number" min="1" max="4" value="1"></div>
       </div>
-      <label>参数(与上游计价档位精确匹配;aspect_ratio/image_size/resolution/duration)</label>
-      <div class="row">
-        <div><input id="mAR" placeholder="aspect_ratio,如 1:1 / 16:9" value="1:1"></div>
-        <div><input id="mRes" placeholder="resolution / image_size,如 1K / 720P"></div>
-        <div style="max-width:110px"><input id="mDur" placeholder="duration 秒"></div>
-      </div>
+      <label>参数(按所选模型的合法档位,与上游计价精确匹配)</label>
+      <div class="row" id="mParams"></div>
       <label>等待模式</label>
       <select id="mWait"><option value="240">同步等结果(最多 4 分钟,推荐)</option><option value="0">异步(只拿任务号)</option></select>
       <div class="hint" id="mEnt" style="margin-top:8px"></div>
+      <div class="hint" id="mPrice" style="margin-top:4px"></div>
     </div>
     <div class="card">
       <label>Prompt</label>
@@ -1122,6 +1119,7 @@ $('setList').addEventListener('click',function(e){
 
 // ---------- 图像/视频生成 ----------
 var mModels=[];
+var mSchema={};
 function mediaFillAccounts(){
   var sel=$('mAccount'), cur=sel.value;
   var valid=accounts.filter(function(a){return a.usable||a.status==='ok'});
@@ -1143,6 +1141,11 @@ function mediaInit(){
     mModels=(list||[]).filter(function(m){return m.available});
     mediaFillModels();
   }).catch(function(){});
+  // 参数档位表(内嵌,一次加载)与账号余额
+  if(!Object.keys(mSchema).length){
+    apiJSON('/api/web/media/schema').then(function(d){ mSchema=d||{}; mediaRenderParams(); mediaPricePreview(); }).catch(function(){});
+  } else { mediaRenderParams(); mediaPricePreview(); }
+  mediaShowBalance();
 }
 function mediaFillModels(){
   var sel=$('mModel'), cur=sel.value;
@@ -1150,6 +1153,79 @@ function mediaFillModels(){
     return '<option value="'+esc(m.id)+'">'+esc(m.id)+' ('+m.modes.join('/')+')</option>'
   }).join('');
   if(cur&&mModels.some(function(m){return m.id===cur})) sel.value=cur;
+  mediaRenderParams(); mediaPricePreview();
+}
+// 按当前模型渲染参数下拉(选项来自内嵌档位表,默认值选中)
+function mediaRenderParams(){
+  var box=$('mParams'); box.innerHTML='';
+  var def=mSchema[$('mModel').value];
+  if(!def){ box.innerHTML='<div class="hint">该模型没有档位表,请换一个模型</div>'; return }
+  var labels={aspect_ratio:'宽高比',resolution:'分辨率',image_size:'图像尺寸',quality:'质量',duration:'时长'};
+  Object.keys(def.params).forEach(function(k){
+    var opts=def.params[k]||[];
+    var d=document.createElement('div');
+    d.innerHTML='<label>'+esc(labels[k]||k)+'</label>';
+    var sel=document.createElement('select'); sel.id='mp_'+k;
+    opts.forEach(function(o){
+      var opt=document.createElement('option'); opt.value=o; opt.textContent=o;
+      if(String(def.defaults[k])===String(o)) opt.selected=true;
+      sel.appendChild(opt);
+    });
+    sel.onchange=function(){ mediaOnParamChange(k); mediaPricePreview(); };
+    d.appendChild(sel); box.appendChild(d);
+  });
+}
+// gpt-image 系:image_size 由 resolution+aspect_ratio 查像素表得出(隐藏参数)
+function mediaIsPixelModel(){ var def=mSchema[$('mModel').value]; return !!(def&&def.pixel_map) }
+function mediaOnParamChange(){ /* 像素模型的 image_size 每次收集时现算,无需额外动作 */ }
+// 收集当前参数(数字/字符串都按上游要的形状)
+function mediaCollectParams(){
+  var def=mSchema[$('mModel').value]||{};
+  var out={};
+  Object.keys(def.params||{}).forEach(function(k){
+    var el=document.getElementById('mp_'+k); if(!el) return;
+    out[k]=el.value;
+  });
+  if(def.pixel_map){ // gpt-image 系:宽高比+分辨率 → 像素串 image_size(上游不收 aspect_ratio)
+    var res=out.resolution||'1K', ratio=out.aspect_ratio||'16:9';
+    var map=def.pixel_map[res]||{};
+    if(!map[ratio]){ var ks=Object.keys(map); ratio=ks[0]; }
+    out.image_size=map[ratio];
+    delete out.aspect_ratio; delete out.resolution;
+    if(!out.quality) out.quality='medium';
+  }
+  if(def.mode!=='video'&&!def.pixel_map&&!Object.keys(out).some(function(k){return k==='resolution'||k==='image_size'})) out.image_size='1K';
+  return out;
+}
+// 计价预览(不扣费)+ 账号余额显示
+var priceTimer=null;
+function mediaPricePreview(){
+  clearTimeout(priceTimer);
+  priceTimer=setTimeout(function(){
+    var acc=$('mAccount').value, model=$('mModel').value;
+    if(!acc||!model){ $('mPrice').textContent=''; return }
+    var def=mSchema[model]||{};
+    var body={model:model,variant:def.variant||'t2i',mode:def.mode||'image',count:parseInt($('mCount').value,10)||1,params:mediaCollectParams()};
+    if(body.mode==='video'&&Object.keys(body.params).some(function(k){return k==='duration'})){
+      body.durationSec=parseInt(body.params.duration,10)||undefined;
+    }
+    apiJSON('/api/web/media/price',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(d){ $('mPrice').textContent='预估消耗 '+d.credits+' credits'+(d.perItemCredits&&d.count>1?'('+d.perItemCredits+'/张)':''); })
+      .catch(function(e){ $('mPrice').textContent='计价: '+e.message.slice(0,80) });
+  },250);
+}
+$('mAccount').onchange=function(){mediaShowBalance()};
+$('mCount').oninput=mediaPricePreview;
+function mediaShowBalance(){
+  var acc=$('mAccount').value; if(!acc){return}
+  apiJSON('/api/web/credit?account='+encodeURIComponent(acc)).then(function(d){
+    var pkg=d.package||{}, s='账号余额: ';
+    if(typeof pkg.balance!=='undefined') s+=pkg.balance+(pkg.total!=null?' / '+pkg.total:'')+' credits';
+    else if(pkg.error||pkg.status) s+='查询失败';
+    else { var parts=[]; for(var k in pkg){var v=pkg[k]; if(typeof v==='number'||(typeof v==='string'&&v.length<20)) parts.push(k+'='+v)} s+=parts.join(' · ')||'—'}
+    $('mEnt').textContent=$('mEnt').textContent.replace(/^账号余额: .*? · /,'').replace(/^账号余额: .*/,'') ;
+    $('mEnt').textContent=s+' · '+$('mEnt').textContent;
+  }).catch(function(){});
 }
 function mediaGen(){
   var acc=$('mAccount').value;
@@ -1157,15 +1233,11 @@ function mediaGen(){
   var prompt=$('mPrompt').value.trim();
   if(!prompt){showErr('请填写 Prompt','mErr');return}
   var model=$('mModel').value; if(!model){showErr('没有可用模型','mErr');return}
-  var isVideo=/kling|sora|hailuo|minimax|wan-|veo|seedance|grok-imagine-video|gemini-omni|heygen/i.test(model);
-  var variant=isVideo?'t2v':'t2i';
-  var params={};
-  if($('mAR').value.trim()) params.aspect_ratio=$('mAR').value.trim();
-  var res=$('mRes').value.trim();
-  if(res) params[variant==='t2v'?'resolution':'image_size']=res;
-  else if(variant==='t2i') params.image_size='1K';
-  if($('mDur').value.trim()) params.duration=parseInt($('mDur').value,10);
-  var body={model:model,variant:variant,mode:isVideo?'video':'image',count:parseInt($('mCount').value,10)||1,params:params,prompt:prompt,wait:parseInt($('mWait').value,10)};
+  var def=mSchema[model]||{};
+  var variant=def.variant||'t2i';
+  var mode=def.mode||(variant==='t2v'?'video':'image');
+  var params=mediaCollectParams();
+  var body={model:model,variant:variant,mode:mode,count:parseInt($('mCount').value,10)||1,params:params,prompt:prompt,wait:parseInt($('mWait').value,10)};
   $('mGen').disabled=true;
   $('mState').innerHTML='<span class="spin"></span>生成中…(图像约 1 分钟,视频数分钟)';
   $('mErr').style.display='none'; $('mOut').innerHTML='';

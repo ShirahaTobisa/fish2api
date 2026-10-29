@@ -971,6 +971,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/accounts/{name}", handleAccountDelete)
 	mux.HandleFunc("GET /api/web/media/models", handleWebMediaModels)
 	mux.HandleFunc("GET /api/web/media/entitlements", handleWebMediaEntitlements)
+	mux.HandleFunc("GET /api/web/media/schema", handleWebMediaSchema)
+	mux.HandleFunc("POST /api/web/media/price", handleWebMediaPrice)
 	mux.HandleFunc("POST /api/web/media", logged("media", handleWebMediaGenerate))
 	mux.HandleFunc("GET /api/web/media/{group_id}", handleWebMediaStatus)
 	mux.HandleFunc("GET /api/web/media/file", handleWebMediaFile)

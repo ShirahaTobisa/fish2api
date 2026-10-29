@@ -1,0 +1,158 @@
+{
+ "nano-banana-2-lite": {
+  "modes": [
+   "image"
+  ],
+  "defaults": "",
+  "paramOptions": "aspectRatio:Po,resolution:Oo,count:l",
+  "variants": [
+   "edit",
+   "t2i"
+  ]
+ },
+ "kling-3-pro": {
+  "modes": [
+   "video"
+  ],
+  "defaults": "",
+  "paramOptions": "aspectRatio:Ne,duration:It,count:l",
+  "variants": [
+   "i2v",
+   "t2v"
+  ]
+ },
+ "kling-2-6-pro": {
+  "modes": [
+   "video"
+  ],
+  "defaults": "",
+  "paramOptions": "aspectRatio:Ne,duration:It,count:l",
+  "variants": [
+   "i2v",
+   "t2v"
+  ]
+ },
+ "hailuo-2-3": {
+  "modes": [
+   "video"
+  ],
+  "defaults": "",
+  "paramOptions": "",
+  "variants": [
+   "i2v",
+   "t2v"
+  ]
+ },
+ "seedance-2.0-fast": {
+  "modes": [
+   "video"
+  ],
+  "defaults": "",
+  "paramOptions": "aspectRatio:J,resolution:bt,duration:De,count:l",
+  "variants": [
+   "i2v",
+   "t2v"
+  ]
+ },
+ "seedance-1-5-pro": {
+  "modes": [
+   "video"
+  ],
+  "defaults": "",
+  "paramOptions": "aspectRatio:J,resolution:Fo,duration:Vo,count:l",
+  "variants": [
+   "i2v",
+   "t2v"
+  ]
+ },
+ "sync-lipsync/v3/lip-sync": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "count:l",
+  "variants": [
+   "video_audio"
+  ]
+ },
+ "sync-lipsync/v2/pro/lip-sync": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "count:l",
+  "variants": [
+   "video_audio"
+  ]
+ },
+ "veed/lipsync/lip-sync": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "count:l",
+  "variants": [
+   "video_audio"
+  ]
+ },
+ "pixverse/lipsync/lip-sync": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "count:l",
+  "variants": [
+   "video_audio"
+  ]
+ },
+ "creatify/aurora/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "resolution:[\"480P\",\"720P\"],count:l",
+  "variants": [
+   "avatar_audio"
+  ]
+ },
+ "creatify/aurora-v2/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "resolution:\"720P\"",
+  "paramOptions": "resolution:[\"480P\",\"720P\",\"1080P\"],count:l},paramDefaults:{resolution:\"720P\"",
+  "variants": [
+   "avatar_audio"
+  ]
+ },
+ "heygen/avatar4/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "aspectRatio:\"16:9\",resolution:\"360P\"",
+  "paramOptions": "aspectRatio:Do,resolution:Lo,count:l},paramDefaults:{aspectRatio:\"16:9\",resolution:\"360P\"",
+  "variants": [
+   "avatar_audio"
+  ]
+ },
+ "veed/fabric-1.0/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "resolution:[\"720P\",\"480P\"],count:l",
+  "variants": [
+   "avatar_audio"
+  ]
+ },
+ "infinitalk/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "defaults": "",
+  "paramOptions": "resolution:[\"480P\"],count:l",
+  "variants": [
+   "avatar_audio"
+  ]
+ }
+}

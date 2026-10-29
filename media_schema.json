@@ -1,0 +1,667 @@
+{
+ "nano-banana-2-1": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "8:1",
+    "4:1",
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:4",
+    "1:8",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9",
+   "resolution": "1K"
+  }
+ },
+ "nano-banana-2-lite": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "3:2",
+    "1:1",
+    "2:3",
+    "9:16"
+   ],
+   "resolution": [
+    "1K"
+   ]
+  },
+  "defaults": {}
+ },
+ "gpt-image-2.5-flare": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "gpt-image-2.5-sunburst": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "gpt-image-2": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "nano-banana": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "8:1",
+    "4:1",
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:4",
+    "1:8",
+    "auto"
+   ],
+   "resolution": [
+    "0.5K",
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9",
+   "resolution": "1K"
+  }
+ },
+ "gemini-3-pro-image": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9",
+   "resolution": "2K"
+  }
+ },
+ "seedream-5-0": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "2K",
+    "3K"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedream-4-5": {
+  "modes": [
+   "image"
+  ],
+  "variants": [
+   "t2i"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {}
+ },
+ "minimax-h3": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "2K"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "seedance-2.0": {
+  "modes": [
+   "video"
+  ],
+  "variants": [],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p",
+    "1080p"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-2.5": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p",
+    "1080p"
+   ]
+  },
+  "defaults": {}
+ },
+ "kling-o3-pro": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ]
+  },
+  "defaults": {}
+ },
+ "kling-3-pro": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "duration": [
+    "5s",
+    "10s"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-2.0-mini": {
+  "modes": [
+   "video"
+  ],
+  "variants": [],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p"
+   ]
+  },
+  "defaults": {}
+ },
+ "minimax-h3-max": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "480P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "minimax-h3-max-turbo": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "480P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9"
+  }
+ },
+ "gemini-omni-flash": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16"
+   ]
+  },
+  "defaults": {
+   "duration": "8s"
+  }
+ },
+ "kling-2-6-pro": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "duration": [
+    "5s",
+    "10s"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-2.0-fast": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-1-5-pro": {
+  "modes": [
+   "video"
+  ],
+  "variants": [
+   "t2v"
+  ],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p"
+   ]
+  },
+  "defaults": {}
+ },
+ "creatify/aurora/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "resolution": [
+    "480P",
+    "720P"
+   ]
+  },
+  "defaults": {}
+ },
+ "creatify/aurora-v2/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "resolution": [
+    "480P",
+    "720P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "resolution": "720P"
+  }
+ },
+ "heygen/avatar4/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "aspectRatio": [
+    "16:9",
+    "9:16",
+    "4:5",
+    "5:4",
+    "1:1"
+   ],
+   "resolution": [
+    "360P",
+    "480P",
+    "540P",
+    "720P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "aspectRatio": "16:9",
+   "resolution": "360P"
+  }
+ },
+ "veed/fabric-1.0/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "resolution": [
+    "720P",
+    "480P"
+   ]
+  },
+  "defaults": {}
+ },
+ "infinitalk/avatar": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "resolution": [
+    "480P"
+   ]
+  },
+  "defaults": {}
+ },
+ "minimax-h3-lipsync": {
+  "modes": [
+   "lipsync"
+  ],
+  "variants": [],
+  "options": {
+   "aspectRatio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "2K"
+   ]
+  },
+  "defaults": {}
+ }
+}

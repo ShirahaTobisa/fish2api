@@ -1,0 +1,445 @@
+{
+ "nano-banana-2-1": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "8:1",
+    "4:1",
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:4",
+    "1:8",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9",
+   "resolution": "1K"
+  }
+ },
+ "nano-banana-2-lite": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "3:2",
+    "1:1",
+    "2:3",
+    "9:16"
+   ],
+   "resolution": [
+    "1K"
+   ]
+  },
+  "defaults": {}
+ },
+ "gpt-image-2.5-flare": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "gpt-image-2.5-sunburst": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "gpt-image-2": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "3:1",
+    "21:9",
+    "2:1",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:2",
+    "1:3",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ],
+   "quality": [
+    "low",
+    "medium",
+    "high"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "nano-banana": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "8:1",
+    "4:1",
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "1:4",
+    "1:8",
+    "auto"
+   ],
+   "resolution": [
+    "0.5K",
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9",
+   "resolution": "1K"
+  }
+ },
+ "gemini-3-pro-image": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "5:4",
+    "1:1",
+    "4:5",
+    "3:4",
+    "2:3",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "1K",
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9",
+   "resolution": "2K"
+  }
+ },
+ "seedream-5-0": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "2K",
+    "3K"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedream-4-5": {
+  "mode": "image",
+  "variant": "t2i",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16",
+    "auto"
+   ],
+   "resolution": [
+    "2K",
+    "4K"
+   ]
+  },
+  "defaults": {}
+ },
+ "minimax-h3": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "2K"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "seedance-2.5": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p",
+    "1080p"
+   ]
+  },
+  "defaults": {}
+ },
+ "kling-o3-pro": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ]
+  },
+  "defaults": {}
+ },
+ "kling-3-pro": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "duration": [
+    "5s",
+    "10s"
+   ]
+  },
+  "defaults": {}
+ },
+ "minimax-h3-max": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "480P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "minimax-h3-max-turbo": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "resolution": [
+    "768P",
+    "480P",
+    "1080P"
+   ]
+  },
+  "defaults": {
+   "aspect_ratio": "16:9"
+  }
+ },
+ "gemini-omni-flash": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16"
+   ]
+  },
+  "defaults": {
+   "duration": "8s"
+  }
+ },
+ "kling-2-6-pro": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "duration": [
+    "5s",
+    "10s"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-2.0-fast": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p"
+   ]
+  },
+  "defaults": {}
+ },
+ "seedance-1-5-pro": {
+  "mode": "video",
+  "variant": "t2v",
+  "params": {
+   "aspect_ratio": [
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9",
+    "adaptive"
+   ],
+   "resolution": [
+    "480p",
+    "720p"
+   ]
+  },
+  "defaults": {}
+ }
+}
