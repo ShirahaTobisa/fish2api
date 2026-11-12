@@ -552,7 +552,7 @@ function renderAccounts(){
     }
     btns+='<button class="sm" data-act="token">更新 token</button> <button class="sm danger" data-act="del">删除</button>';
     return '<tr data-name="'+esc(a.name)+'"><td><b>'+esc(a.name)+'</b></td><td>'+esc(a.email)+'</td>'+
-      '<td>'+statusTag(a)+err+'</td><td>'+fmtLeft(a)+exp+'</td>'+
+      '<td>'+statusTag(a)+(a.credit_out?' <span class="tag t-warn" title="合成的轮询先跳过它,余额涨回来自动放回">额度用完</span>':'')+err+'</td><td>'+fmtLeft(a)+exp+'</td>'+
       '<td>'+balanceCell(a)+'</td><td style="white-space:nowrap">'+btns+'</td></tr>';
   }).join('');
 }

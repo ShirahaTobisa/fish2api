@@ -288,11 +288,14 @@ func apiKeyHeaders(r *http.Request) map[string]string {
 }
 
 // resolveWebCred 网页 JWT 来源:X-Fish-Web-Token > 账号库(X-Account / ?account= 指定,否则轮询)> FISH_WEB_TOKEN。
-func resolveWebCred(r *http.Request) (*WebCred, error) {
+func resolveWebCred(r *http.Request) (*WebCred, error) { return resolveCred(r, false) }
+
+// resolveCred 同上;spend=true 是合成这种花套餐额度的请求,轮询时跳过额度用完的账号。
+func resolveCred(r *http.Request, spend bool) (*WebCred, error) {
 	if t := r.Header.Get("X-Fish-Web-Token"); t != "" {
 		return &WebCred{Token: t}, nil
 	}
-	cred, err := store.Pick(cmp.Or(r.Header.Get("X-Account"), r.URL.Query().Get("account")))
+	cred, err := store.Pick(cmp.Or(r.Header.Get("X-Account"), r.URL.Query().Get("account")), spend)
 	if err == nil {
 		recOf(r).Account = cred.Account.Name // 请求记录里记下实际用的账号(见 admin.go)
 		return cred, nil
@@ -569,7 +572,7 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 			return
 		}
 	}
-	cred, err := resolveWebCred(r)
+	cred, err := resolveCred(r, true)
 	if err != nil {
 		fail(w, 401, err.Error())
 		return
@@ -614,6 +617,11 @@ func serveWebTTS(w http.ResponseWriter, r *http.Request, in *webTTSRequest) {
 	if cred.Account != nil && (resp.StatusCode == 429 || resp.StatusCode >= 500) {
 		store.Cooldown(cred.Account.Name, accountCooldown())
 		logf("账号 %s 上游返回 %d,冷却 %s 后再轮到它", cred.Account.Name, resp.StatusCode, accountCooldown())
+	}
+	if cred.Account != nil && resp.StatusCode == 402 { // 额度用完:轮询先跳过它,余额涨回来(下个月发额度或充了值)自动放回,见 RefreshLoop
+		bal, _ := packageBalance(cred)
+		store.SetCreditOut(cred.Account.Name, bal)
+		logf("账号 %s 额度用完(还剩 %.0f),轮询先跳过它,余额涨回来自动放回", cred.Account.Name, bal)
 	}
 	if id := resp.Header.Get("task-id"); id != "" {
 		w.Header().Set("X-Task-Id", id)
@@ -790,6 +798,21 @@ func handleWebCredit(w http.ResponseWriter, r *http.Request) {
 	go func() { defer wg.Done(); apiCredit = wallet(ctx, "/wallet/"+uid+"/api-credit", h) }() // API 积分(API key 用)
 	wg.Wait()
 	writeJSON(w, 200, map[string]any{"user_id": uid, "package": pkg, "api_credit": apiCredit})
+}
+
+// packageBalance 账号套餐钱包的余额(含额外额度);查不到返回 false。
+func packageBalance(cred *WebCred) (float64, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	raw, ok := wallet(ctx, "/wallet/"+cred.UserID+"/package", webHeaders(cred)).(json.RawMessage)
+	var p struct {
+		Balance float64 `json:"balance"`
+		Extra   float64 `json:"extra_balance"`
+	}
+	if !ok || json.Unmarshal(raw, &p) != nil {
+		return 0, false
+	}
+	return p.Balance + p.Extra, true
 }
 
 // wallet 查一个钱包,返回上游 JSON;失败时返回 {error} 或 {status, body}。

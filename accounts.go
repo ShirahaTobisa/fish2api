@@ -52,6 +52,9 @@ var (
 // verifyEvery 多久向上游验证一次 token 还有效。面板「设置」里能改、保存即生效(见 admin.go),所以现读。
 func verifyEvery() int { return envInt("TOKEN_VERIFY_INTERVAL_SECONDS", 600) }
 
+// 额度用完的账号隔多久去看一眼余额有没有涨回来
+const creditProbeEvery = 6 * time.Hour
+
 // 自动登录失败后隔多久才再试,否则每轮巡检都会弹一次浏览器
 const retryGap = 10 * time.Minute
 
@@ -88,8 +91,10 @@ type Account struct {
 	LastLogin     float64   `json:"last_login,omitempty"`
 	LastCheck     float64   `json:"last_check,omitempty"` // 上次向上游验证通过的时间
 	LastError     string    `json:"last_error,omitempty"`
+	CreditOut     *float64  `json:"credit_out,omitempty"` // 额度用完那一刻的余额;非空 = 合成的轮询跳过它,余额涨回来才放回(见 RefreshLoop)
 	lastAttempt   time.Time // 上次自动登录失败的时间,用于退避
 	cooldownUntil time.Time // 上游 429/5xx 后的冷却截止,轮询期间跳过它
+	creditProbe   time.Time // 上次去看它余额有没有恢复的时间
 }
 
 // WebCred 一次请求用的网页凭证快照;Account 非 nil 表示来自账号库(上游 401 时可重登)。
@@ -236,6 +241,45 @@ func (s *AccountStore) Cooldown(name string, d time.Duration) {
 	}
 }
 
+// SetCreditOut 上游说额度用完(402)时调用:记下此刻余额,合成的轮询从此跳过它;用 X-Account 指定名字的请求不受影响。
+func (s *AccountStore) SetCreditOut(name string, bal float64) {
+	s.mu.Lock()
+	if a := s.find(name); a != nil {
+		a.CreditOut, a.creditProbe = &bal, time.Now()
+	}
+	s.mu.Unlock()
+	s.Save()
+}
+
+// CreditBack 余额比用完时多了(下个月发了额度,或充了值)就把账号放回轮询;放回了返回 true。
+func (s *AccountStore) CreditBack(name string, bal float64) bool {
+	s.mu.Lock()
+	a := s.find(name)
+	back := a != nil && a.CreditOut != nil && bal > *a.CreditOut
+	if back {
+		a.CreditOut = nil
+	}
+	s.mu.Unlock()
+	if back {
+		s.Save()
+	}
+	return back
+}
+
+// creditProbes 额度用完、且距上次看余额已过 creditProbeEvery 的账号的凭证快照;取出即记为已看。
+func (s *AccountStore) creditProbes() []*WebCred {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []*WebCred
+	for _, a := range s.Accounts {
+		if a.CreditOut != nil && a.Token != "" && time.Since(a.creditProbe) >= creditProbeEvery {
+			a.creditProbe = time.Now()
+			out = append(out, &WebCred{Token: a.Token, UserID: a.UserID, TeamID: a.TeamID, WorkspaceID: a.WorkspaceID, Account: a})
+		}
+	}
+	return out
+}
+
 // setToken 写入新 token 并标记可用(需持锁)。
 func setToken(a *Account, token string) {
 	a.Token, a.Exp, a.Status = token, jwtExp(token), "ok"
@@ -247,8 +291,9 @@ func (s *AccountStore) usable(a *Account) bool {
 	return a.Token != "" && (a.Exp == 0 || a.Exp-float64(time.Now().Unix()) > 30)
 }
 
-// Pick 选择账号:指定名字 > 可用账号轮询。返回的是快照,可在锁外使用。
-func (s *AccountStore) Pick(name string) (*WebCred, error) {
+// Pick 选择账号:指定名字 > 可用账号轮询;spend=true(合成这种花套餐额度的请求)时轮询跳过额度用完的。
+// 返回的是快照,可在锁外使用。
+func (s *AccountStore) Pick(name string, spend bool) (*WebCred, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var a *Account
@@ -263,7 +308,7 @@ func (s *AccountStore) Pick(name string) (*WebCred, error) {
 		var pool, cooling []*Account
 		now := time.Now()
 		for _, x := range s.Accounts {
-			if !s.usable(x) {
+			if !s.usable(x) || (spend && x.CreditOut != nil) {
 				continue
 			}
 			if now.Before(x.cooldownUntil) {
@@ -319,7 +364,7 @@ func (s *AccountStore) Views() []map[string]any {
 func (s *AccountStore) view(a *Account) map[string]any {
 	v := map[string]any{
 		"name": a.Name, "email": a.Email, "has_password": a.Password != "", "provider": a.Provider,
-		"status": a.Status, "usable": s.usable(a), "last_error": a.LastError, "user_id": a.UserID,
+		"status": a.Status, "usable": s.usable(a), "credit_out": a.CreditOut != nil, "last_error": a.LastError, "user_id": a.UserID,
 		"team_id": a.TeamID, "workspace_id": a.WorkspaceID,
 		"expires_at": rfc3339(a.Exp), "last_login": rfc3339(a.LastLogin), "last_check": rfc3339(a.LastCheck),
 		"seconds_left": nil, "token_preview": "",
@@ -453,6 +498,11 @@ func (s *AccountStore) RefreshLoop() {
 		for _, name := range s.staleChecks() {
 			if _, err := s.Verify(name); err != nil {
 				logf("账号 %s 的 token 验证: %v", name, err)
+			}
+		}
+		for _, c := range s.creditProbes() { // 额度用完的号:看一眼余额,涨回来了就放回轮询
+			if bal, ok := packageBalance(c); ok && s.CreditBack(c.Account.Name, bal) {
+				logf("账号 %s 余额涨回 %.0f,放回轮询", c.Account.Name, bal)
 			}
 		}
 		if !hasBrowser {
